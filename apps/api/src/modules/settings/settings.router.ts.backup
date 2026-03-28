@@ -1,0 +1,261 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { prisma } from '../../shared/database/prisma';
+import { requireAuth } from '../../shared/middleware/auth.middleware';
+import { sendSuccess } from '../../shared/utils/response';
+
+export const settingsRouter = Router();
+
+// All routes require auth
+settingsRouter.use(requireAuth);
+
+// ─── Company Profile ──────────────────────────────────────────────────────────
+
+const companyUpdateSchema = z.object({
+  name: z.string().min(2).max(255).optional(),
+  industry: z.string().max(100).optional().nullable(),
+  businessType: z.string().max(100).optional().nullable(),
+  description: z.string().optional().nullable(),
+  targetGeo: z
+    .object({
+      country: z.string().optional(),
+      states: z.array(z.string()).optional(),
+      cities: z.array(z.string()).optional(),
+    })
+    .optional()
+    .nullable(),
+  settings: z.record(z.unknown()).optional(),
+});
+
+// GET /api/v1/settings/company
+settingsRouter.get('/company', async (req, res) => {
+  // super_admin can target any tenant via ?tenantId=
+  let tenantId =
+    req.auth.role === 'super_admin' && req.query['tenantId']
+      ? String(req.query['tenantId'])
+      : req.auth.tenantId;
+  // Validate tenant ownership for non-super_admin
+  if (req.auth.role !== 'super_admin' && req.auth.tenantId !== tenantId) {
+    throw new Error('Forbidden: Cannot access another tenant');
+  }
+
+  const company = await prisma.company.findUniqueOrThrow({
+    where: { tenantId },
+    select: {
+      id: true,
+      tenantId: true,
+      name: true,
+      industry: true,
+      businessType: true,
+      description: true,
+      targetGeo: true,
+      settings: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+
+  sendSuccess(res, company);
+});
+
+// PUT /api/v1/settings/company
+  const tenantId =
+    req.auth.role === 'super_admin' && req.query['tenantId']
+      ? String(req.query['tenantId'])
+      : req.auth.tenantId;
+  // Validate tenant ownership for non-super_admin
+  if (req.auth.role !== 'super_admin' && req.auth.tenantId !== tenantId) {
+    throw new Error('Forbidden: Cannot access another tenant');
+  }
+
+  const data = companyUpdateSchema.parse(req.body);
+
+  // Deep-merge settings JSON so callers can patch individual keys
+  let mergedSettings: Record<string, unknown> | undefined;
+  if (data.settings !== undefined) {
+    const current = await prisma.company.findUniqueOrThrow({
+      where: { tenantId },
+      select: { settings: true },
+    });
+    const existing = (current.settings as Record<string, unknown>) ?? {};
+    mergedSettings = { ...existing, ...data.settings };
+  }
+
+  const updated = await prisma.company.update({
+    where: { tenantId },
+    data: {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.industry !== undefined && { industry: data.industry }),
+      ...(data.businessType !== undefined && { businessType: data.businessType }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.targetGeo !== undefined && { targetGeo: data.targetGeo }),
+      ...(mergedSettings !== undefined && { settings: mergedSettings }),
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      name: true,
+      industry: true,
+      businessType: true,
+      description: true,
+      targetGeo: true,
+      settings: true,
+      status: true,
+    },
+  });
+
+  sendSuccess(res, updated);
+});
+
+// ─── Integrations ─────────────────────────────────────────────────────────────
+
+const integrationsUpdateSchema = z.object({
+  // WhatsApp delivery
+  whatsappDeliveryNumber: z.string().optional().nullable(),
+
+  // Meta Ads credentials
+  meta: z
+    .object({
+      accessToken: z.string().optional(),
+      accountId: z.string().optional(),
+      appId: z.string().optional(),
+      appSecret: z.string().optional(),
+    })
+    .optional(),
+});
+
+// GET /api/v1/settings/integrations
+settingsRouter.get('/integrations', async (req, res) => {
+settingsRouter.get('/integrations', async (req, res) => {
+  let tenantId =
+    req.auth.role === 'super_admin' && req.query['tenantId']
+      ? String(req.query['tenantId'])
+      : req.auth.tenantId;
+  // Validate tenant ownership for non-super_admin
+  if (req.auth.role !== 'super_admin' && req.auth.tenantId !== tenantId) {
+    throw new Error('Forbidden: Cannot access another tenant');
+  }
+
+  const [company, metaCreds] = await Promise.all([
+  const [company, metaCreds] = await Promise.all([
+    prisma.company.findUniqueOrThrow({
+      where: { tenantId },
+      select: { settings: true },
+    }),
+    prisma.adPlatformCredential.findFirst({
+      where: { tenantId, platform: 'meta' },
+      select: {
+        id: true,
+        accountId: true,
+        appId: true,
+        isValid: true,
+        tokenExpiresAt: true,
+        // Return presence flags only — never expose raw tokens
+        accessToken: true,
+      },
+    }),
+  ]);
+
+  const settings = (company.settings as Record<string, unknown>) ?? {};
+
+  sendSuccess(res, {
+    whatsapp: {
+      deliveryNumber: (settings['whatsappDeliveryNumber'] as string) ?? null,
+      configured: Boolean(settings['whatsappDeliveryNumber']),
+    },
+    meta: metaCreds
+      ? {
+          connected: metaCreds.isValid,
+          accountId: metaCreds.accountId ?? null,
+          appId: metaCreds.appId ?? null,
+          hasAccessToken: Boolean(metaCreds.accessToken),
+          tokenExpiresAt: metaCreds.tokenExpiresAt ?? null,
+        }
+      : { connected: false, accountId: null, appId: null, hasAccessToken: false, tokenExpiresAt: null },
+  });
+});
+
+// PUT /api/v1/settings/integrations
+  let tenantId =
+    req.auth.role === 'super_admin' && req.query['tenantId']
+      ? String(req.query['tenantId'])
+      : req.auth.tenantId;
+  // Validate tenant ownership for non-super_admin
+  if (req.auth.role !== 'super_admin' && req.auth.tenantId !== tenantId) {
+    throw new Error('Forbidden: Cannot access another tenant');
+  }
+  const data = integrationsUpdateSchema.parse(req.body);
+  const data = integrationsUpdateSchema.parse(req.body);
+
+  // Update WhatsApp delivery number in company.settings (merge)
+  if (data.whatsappDeliveryNumber !== undefined) {
+    const company = await prisma.company.findUniqueOrThrow({
+      where: { tenantId },
+      select: { settings: true },
+    });
+    const existing = (company.settings as Record<string, unknown>) ?? {};
+    await prisma.company.update({
+      where: { tenantId },
+      data: {
+        settings: {
+          ...existing,
+          whatsappDeliveryNumber: data.whatsappDeliveryNumber,
+        },
+      },
+    });
+  }
+
+  // Upsert Meta Ads credential
+  if (data.meta) {
+    const { accessToken, accountId, appId, appSecret } = data.meta;
+    await prisma.adPlatformCredential.upsert({
+      where: { tenantId_platform: { tenantId, platform: 'meta' } },
+      create: {
+        tenantId,
+        platform: 'meta',
+        ...(accessToken && { accessToken }),
+        ...(accountId && { accountId }),
+        ...(appId && { appId }),
+        ...(appSecret && { appSecret }),
+        isValid: true,
+      },
+      update: {
+        ...(accessToken !== undefined && { accessToken }),
+        ...(accountId !== undefined && { accountId }),
+        ...(appId !== undefined && { appId }),
+        ...(appSecret !== undefined && { appSecret }),
+        isValid: true,
+      },
+    });
+  }
+
+  // Return fresh integrations state
+  const [company, metaCreds] = await Promise.all([
+    prisma.company.findUniqueOrThrow({
+      where: { tenantId },
+      select: { settings: true },
+    }),
+    prisma.adPlatformCredential.findFirst({
+      where: { tenantId, platform: 'meta' },
+      select: { accountId: true, appId: true, isValid: true, tokenExpiresAt: true, accessToken: true },
+    }),
+  ]);
+
+  const settings = (company.settings as Record<string, unknown>) ?? {};
+
+  sendSuccess(res, {
+    whatsapp: {
+      deliveryNumber: (settings['whatsappDeliveryNumber'] as string) ?? null,
+      configured: Boolean(settings['whatsappDeliveryNumber']),
+    },
+    meta: metaCreds
+      ? {
+          connected: metaCreds.isValid,
+          accountId: metaCreds.accountId ?? null,
+          appId: metaCreds.appId ?? null,
+          hasAccessToken: Boolean(metaCreds.accessToken),
+          tokenExpiresAt: metaCreds.tokenExpiresAt ?? null,
+        }
+      : { connected: false, accountId: null, appId: null, hasAccessToken: false, tokenExpiresAt: null },
+  });
+});

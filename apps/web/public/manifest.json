@@ -1,0 +1,16 @@
+{
+  "name": "LeadFlow Pro",
+  "short_name": "LeadFlow",
+  "description": "AI-powered lead management, scoring, and campaign analytics dashboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

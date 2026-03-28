@@ -1,0 +1,34 @@
+{
+  "name": "leadflow-pro",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api",
+    "build": "npm run build --workspace=apps/api",
+    "db:migrate": "npm run db:migrate --workspace=apps/api",
+    "db:push": "npm run db:push --workspace=apps/api",
+    "db:studio": "npm run db:studio --workspace=apps/api",
+    "db:generate": "npm run db:generate --workspace=apps/api",
+    "test:e2e": "playwright test",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "audit:dependencies": "node scripts/check-dependencies.js",
+    "sync:typescript": "bash scripts/sync-typescript-versions.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2"
+  },
+  "dependencies": {
+    "@types/pdfkit": "0.17.5",
+    "pdfkit": "0.18.0",
+    "react-is": "19.2.4"
+  }
+}

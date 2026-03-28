@@ -1,0 +1,11 @@
+NODE_ENV=development
+PORT=3000
+DATABASE_URL="postgresql://username:password@localhost:5432/leadflow_dev"
+REDIS_URL="redis://localhost:6379"
+JWT_SECRET="your-super-secret-jwt-key-minimum-32-characters-long"
+OPENAI_API_KEY="your-openai-key-here"
+
+# Dev Super Admin
+DEV_SUPER_ADMIN_EMAIL=anantshukla@live.com
+DEV_SUPER_ADMIN_PASSWORD=Admin@$1234!
+DEV_SUPER_ADMIN_TENANT_ID=dev-tenant-local

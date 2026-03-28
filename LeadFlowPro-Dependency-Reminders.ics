@@ -1,0 +1,87 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//LeadFlowPro//Dependency Management//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+NAME:LeadFlowPro Dependency Management
+DESCRIPTION:Recurring reminders for dependency updates and security audits
+
+BEGIN:VEVENT
+UID:leadflow-monthly-audit-2026@leadflow-pro.local
+DTSTART:20260404T094500Z
+DTEND:20260404T100000Z
+RRULE:FREQ=MONTHLY;BYDAY=1FR;BYHOUR=9;BYMINUTE=45
+SUMMARY:LeadFlowPro: Monthly Dependency Audit
+DESCRIPTION:Run: npm run audit:dependencies\n\nCheck for:\n- Security vulnerabilities\n- Outdated Tier 4 packages\n- Version mismatches\n\nUpdate DEPENDENCY_UPDATES.md with findings
+LOCATION:LeadFlowPro Project
+PRIORITY:3
+STATUS:CONFIRMED
+CATEGORIES:Development,DevOps,Security
+END:VEVENT
+
+BEGIN:VEVENT
+UID:leadflow-quarterly-review-mar-2026@leadflow-pro.local
+DTSTART:20260317T100000Z
+DTEND:20260317T120000Z
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=3MO
+SUMMARY:LeadFlowPro: Q1 Dependency Review (March)
+DESCRIPTION:Quarterly review of Tier 2 & 3 packages:\n\n1. Run: npm outdated\n2. Review minor version updates\n3. Plan staging tests (48 hours)\n4. Merge approved updates\n\nNOTE: Occurs on 3rd Monday of March
+LOCATION:LeadFlowPro Project
+PRIORITY:2
+STATUS:CONFIRMED
+CATEGORIES:Development,DevOps
+END:VEVENT
+
+BEGIN:VEVENT
+UID:leadflow-quarterly-review-jun-2026@leadflow-pro.local
+DTSTART:20260615T100000Z
+DTEND:20260615T120000Z
+RRULE:FREQ=YEARLY;BYMONTH=6;BYDAY=3MO
+SUMMARY:LeadFlowPro: Q2 Dependency Review (June)
+DESCRIPTION:Quarterly review of Tier 2 & 3 packages:\n\n1. Run: npm outdated\n2. Review minor version updates\n3. Plan staging tests (48 hours)\n4. Merge approved updates\n\nNOTE: Occurs on 3rd Monday of June
+LOCATION:LeadFlowPro Project
+PRIORITY:2
+STATUS:CONFIRMED
+CATEGORIES:Development,DevOps
+END:VEVENT
+
+BEGIN:VEVENT
+UID:leadflow-quarterly-review-sep-2026@leadflow-pro.local
+DTSTART:20260921T100000Z
+DTEND:20260921T120000Z
+RRULE:FREQ=YEARLY;BYMONTH=9;BYDAY=3MO
+SUMMARY:LeadFlowPro: Q3 Dependency Review (September)
+DESCRIPTION:Quarterly review of Tier 2 & 3 packages:\n\n1. Run: npm outdated\n2. Review minor version updates\n3. Plan staging tests (48 hours)\n4. Merge approved updates\n\nNOTE: Occurs on 3rd Monday of September
+LOCATION:LeadFlowPro Project
+PRIORITY:2
+STATUS:CONFIRMED
+CATEGORIES:Development,DevOps
+END:VEVENT
+
+BEGIN:VEVENT
+UID:leadflow-quarterly-review-dec-2026@leadflow-pro.local
+DTSTART:20261221T100000Z
+DTEND:20261221T120000Z
+RRULE:FREQ=YEARLY;BYMONTH=12;BYDAY=3MO
+SUMMARY:LeadFlowPro: Q4 Dependency Review (December)
+DESCRIPTION:Quarterly review of Tier 2 & 3 packages:\n\n1. Run: npm outdated\n2. Review minor version updates\n3. Plan staging tests (48 hours)\n4. Merge approved updates\n\nNOTE: Occurs on 3rd Monday of December
+LOCATION:LeadFlowPro Project
+PRIORITY:2
+STATUS:CONFIRMED
+CATEGORIES:Development,DevOps
+END:VEVENT
+
+BEGIN:VEVENT
+UID:leadflow-annual-strategy-2027@leadflow-pro.local
+DTSTART:20270120T100000Z
+DTEND:20270120T140000Z
+RRULE:FREQ=YEARLY;BYMONTH=1;BYDAY=3TU
+SUMMARY:LeadFlowPro: Annual Dependency Strategy Review
+DESCRIPTION:ANNUAL REVIEW - Set aside 4 hours\n\nTier 1 Major Version Discussion:\n- React 19→20 upgrade path?\n- Express 4→5 decision\n- Prisma 7→8 timeline\n- Node.js LTS upgrade strategy\n\nDeliverables:\n- Update 12-month upgrade roadmap\n- Document migration paths\n- Update DEPENDENCY_STRATEGY.md with new targets\n\nNOTE: Occurs on 3rd Tuesday of January
+LOCATION:LeadFlowPro Project
+PRIORITY:1
+STATUS:CONFIRMED
+CATEGORIES:Development,DevOps,Strategy
+END:VEVENT
+
+END:VCALENDAR

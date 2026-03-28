@@ -1,0 +1,643 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Core Tenant / Company ────────────────────────────────────────────────────
+
+model Company {
+  id             String  @id @default(uuid())
+  tenantId       String  @unique @map("tenant_id")
+  name           String  @db.VarChar(255)
+  industry       String? @db.VarChar(100)
+  businessType   String? @map("business_type") @db.VarChar(100)
+  description    String? @db.Text
+  targetGeo      Json?   @map("target_geo")      // { country, states[], cities[] }
+  leadCriteria   Json?   @map("lead_criteria")   // AI-readable quality rules
+  pricingDetails Json?   @map("pricing_details")
+  offerDetails   String? @map("offer_details") @db.Text
+  status         String  @default("active") @db.VarChar(20)
+  settings       Json    @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users                 User[]
+  adPlatformCredentials AdPlatformCredential[]
+  campaigns             Campaign[]
+  leads                 Lead[]
+  phoneNumbers          PhoneNumber[]
+  callLogs              CallLog[]
+  whatsappTemplates     WhatsappTemplate[]
+  aiSuggestions         AiSuggestion[]
+  subscription          Subscription?
+  workflows             Workflow[]
+  workflowExecutions    WorkflowExecution[]
+
+  @@map("companies")
+}
+
+model AdPlatformCredential {
+  id                    String    @id @default(uuid())
+  tenantId              String    @map("tenant_id")
+  platform              String    @db.VarChar(50) // 'meta', 'google', 'linkedin', 'microsoft', 'taboola'
+  accountId             String?   @map("account_id") @db.VarChar(100)
+  
+  // Legacy fields (deprecated, use encryptedCredentials instead)
+  accessToken           String?   @map("access_token") @db.Text
+  refreshToken          String?   @map("refresh_token") @db.Text
+  appSecret             String?   @map("app_secret") @db.Text
+  
+  // Encrypted credentials storage (Phase 2+)
+  encryptedCredentials  String?   @map("encrypted_credentials") @db.Text // Contains AES-256 encrypted JSON of {accessToken, refreshToken, appSecret}
+  credentialsIV         String?   @map("credentials_iv") @db.VarChar(64) // Initialization vector for AES or 'kms' for AWS KMS
+  
+  appId                 String?   @map("app_id") @db.VarChar(100)
+  extraConfig           Json?     @map("extra_config")
+  tokenExpiresAt        DateTime? @map("token_expires_at")
+  isValid               Boolean   @default(true) @map("is_valid")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [tenantId], references: [tenantId])
+
+  @@unique([tenantId, platform])
+  @@map("ad_platform_credentials")
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id                 String    @id @default(uuid())
+  tenantId           String    @map("tenant_id")
+  name               String    @db.VarChar(255)
+  platform           String    @db.VarChar(50)
+  platformCampaignId String?   @map("platform_campaign_id") @db.VarChar(100)
+  status             String    @default("draft") @db.VarChar(30)
+  dailyBudget        Decimal?  @map("daily_budget") @db.Decimal(12, 2)
+  totalBudget        Decimal?  @map("total_budget") @db.Decimal(12, 2)
+  leadTargetDaily    Int?      @map("lead_target_daily")
+  leadTargets        Json?     @map("lead_targets")       // { monday: 10, tuesday: 8 }
+  targetingConfig    Json?     @map("targeting_config")   // AI-generated
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  company         Company          @relation(fields: [tenantId], references: [tenantId])
+  leads           Lead[]
+  campaignMetrics CampaignMetric[]
+  aiSuggestions   AiSuggestion[]
+
+  @@map("campaigns")
+}
+
+// ─── Leads ────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  campaignId     String?  @map("campaign_id")
+  platform       String?  @db.VarChar(50)
+  platformLeadId String?  @map("platform_lead_id") @db.VarChar(200)
+  firstName      String?  @map("first_name") @db.VarChar(100)
+  lastName       String?  @map("last_name") @db.VarChar(100)
+  email          String?  @db.VarChar(255)
+  phone          String?  @db.VarChar(30)
+  city           String?  @db.VarChar(100)
+  state          String?  @db.VarChar(100)
+  customFields   Json?    @map("custom_fields")
+  qualityScore   Int?     @map("quality_score") @db.SmallInt // 0-100
+  churnRisk      Float?   @map("churn_risk")
+  status         String   @default("new") @db.VarChar(30)
+  sourceUrl      String?  @map("source_url") @db.Text
+  ipAddress      String?  @map("ip_address")
+  lastActivityAt DateTime? @map("last_activity_at")
+  receivedAt     DateTime @default(now()) @map("received_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  company         Company         @relation(fields: [tenantId], references: [tenantId])
+  campaign        Campaign?       @relation(fields: [campaignId], references: [id])
+  deliveries      LeadDelivery[]
+  callLogs        CallLog[]
+  leadCallMatches LeadCallMatch[]
+  notes           LeadNote[]
+  workflowExecutions WorkflowExecution[]
+  tasks           Task[]
+  activities      Activity[]
+
+  @@unique([tenantId, platform, platformLeadId])
+  @@index([tenantId])
+  @@index([phone])
+  @@map("leads")
+}
+
+model LeadDelivery {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  leadId      String    @map("lead_id")
+  channel     String?   @db.VarChar(30) // 'whatsapp', 'webhook', 'email'
+  status      String?   @db.VarChar(30) // 'pending', 'delivered', 'failed'
+  deliveredAt DateTime? @map("delivered_at")
+  deliveryLog Json?     @map("delivery_log") // full API response/receipt
+  retryCount  Int       @default(0) @map("retry_count") @db.SmallInt
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@map("lead_deliveries")
+}
+
+// ─── Telephony ────────────────────────────────────────────────────────────────
+
+model PhoneNumber {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  number      String   @unique @db.VarChar(20)
+  provider    String?  @db.VarChar(30) // 'twilio', 'plivo'
+  providerSid String?  @map("provider_sid") @db.VarChar(100)
+  routingType String?  @map("routing_type") @db.VarChar(30) // 'forward', 'ivr', 'round_robin'
+  forwardTo   String?  @map("forward_to") @db.VarChar(20)
+  isActive    Boolean  @default(true) @map("is_active")
+  purchasedAt DateTime @default(now()) @map("purchased_at")
+
+  company  Company   @relation(fields: [tenantId], references: [tenantId])
+  callLogs CallLog[]
+
+  @@map("phone_numbers")
+}
+
+model CallLog {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  phoneNumberId   String?   @map("phone_number_id")
+  leadId          String?   @map("lead_id")
+  callSid         String?   @unique @map("call_sid") @db.VarChar(100)
+  fromNumber      String?   @map("from_number") @db.VarChar(20)
+  toNumber        String?   @map("to_number") @db.VarChar(20)
+  direction       String?   @db.VarChar(10) // 'inbound'
+  status          String?   @db.VarChar(30) // 'completed', 'no-answer', 'busy', 'failed'
+  durationSeconds Int?      @map("duration_seconds")
+  recordingUrl    String?   @map("recording_url") @db.Text // S3 presigned URL
+  recordingS3Key  String?   @map("recording_s3_key") @db.Text
+  startedAt       DateTime? @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  company         Company         @relation(fields: [tenantId], references: [tenantId])
+  phoneNumber     PhoneNumber?    @relation(fields: [phoneNumberId], references: [id])
+  lead            Lead?           @relation(fields: [leadId], references: [id])
+  leadCallMatches LeadCallMatch[]
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@map("call_logs")
+}
+
+model LeadCallMatch {
+  id         String   @id @default(uuid())
+  leadId     String   @map("lead_id")
+  callLogId  String   @map("call_log_id")
+  confidence Decimal? @db.Decimal(3, 2) // 0.00 - 1.00
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  lead    Lead    @relation(fields: [leadId], references: [id])
+  callLog CallLog @relation(fields: [callLogId], references: [id])
+
+  @@unique([leadId, callLogId])
+  @@map("lead_call_matches")
+}
+
+// ─── Users & Auth ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  email        String    @unique @db.VarChar(255)
+  passwordHash String?   @map("password_hash") @db.Text
+  firstName    String?   @map("first_name") @db.VarChar(100)
+  lastName     String?   @map("last_name") @db.VarChar(100)
+  role         String    @default("viewer") @db.VarChar(30) // 'super_admin', 'company_admin', 'viewer'
+  isActive     Boolean   @default(true) @map("is_active")
+  twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
+  totpSecret   String?   @map("totp_secret") @db.Text
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  company   Company    @relation(fields: [tenantId], references: [tenantId])
+  auditLogs AuditLog[]
+  notificationPreferences NotificationPreference[]
+  notifications Notification[]
+  tasksAssigned Task[]     @relation("TaskAssignee")
+  tasksCreated  Task[]     @relation("TaskCreator")
+  activities    Activity[]
+  scheduledReports ScheduledReport[] @relation("ReportCreator")
+  savedReports     SavedReport[]     @relation("SavedReportCreator")
+
+  @@map("users")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  userId     String?  @map("user_id")
+  action     String   @db.VarChar(100)
+  resource   String   @db.VarChar(100)
+  resourceId String?  @map("resource_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@map("audit_logs")
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+model CampaignMetric {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  campaignId  String   @map("campaign_id")
+  date        DateTime @db.Date
+  spend       Decimal? @db.Decimal(12, 2)
+  impressions Int?
+  clicks      Int?
+  leadsCount  Int?     @map("leads_count")
+  cpl         Decimal? @db.Decimal(12, 2) // cost per lead
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([campaignId, date])
+  @@map("campaign_metrics")
+}
+
+// ─── WhatsApp & AI ────────────────────────────────────────────────────────────
+
+model WhatsappTemplate {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  name       String   @db.VarChar(100)
+  content    String   @db.Text
+  status     String   @default("pending") @db.VarChar(30) // 'pending', 'approved', 'rejected'
+  templateId String?  @map("template_id") @db.VarChar(100) // Meta template ID
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company Company @relation(fields: [tenantId], references: [tenantId])
+
+  @@map("whatsapp_templates")
+}
+
+model AiSuggestion {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  campaignId String?  @map("campaign_id")
+  type       String   @db.VarChar(50) // 'targeting', 'budget', 'creative'
+  suggestion Json
+  confidence Int?     @db.SmallInt // 0-100
+  applied    Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company  Company   @relation(fields: [tenantId], references: [tenantId])
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@map("ai_suggestions")
+}
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                    String    @id @default(uuid())
+  tenantId              String    @unique @map("tenant_id")
+  plan                  String    @default("starter") @db.VarChar(50)
+  stripeCustomerId      String?   @map("stripe_customer_id") @db.VarChar(100)
+  stripeSubscriptionId  String?   @map("stripe_subscription_id") @db.VarChar(100)
+  status                String    @default("active") @db.VarChar(30) // 'active', 'past_due', 'canceled', 'paused'
+  currentPeriodStart    DateTime? @map("current_period_start")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+  cancelAtPeriodEnd     Boolean   @default(false) @map("cancel_at_period_end")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [tenantId], references: [tenantId])
+  planChanges   PlanChangeLog[]
+
+  @@map("subscriptions")
+}
+
+model PlanChangeLog {
+  id             String   @id @default(uuid())
+  subscriptionId String   @map("subscription_id")
+  oldPlan        String   @map("old_plan") @db.VarChar(50)
+  newPlan        String   @map("new_plan") @db.VarChar(50)
+  reason         String?  @map("reason") @db.VarChar(100)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("plan_change_logs")
+}
+model LeadNote {
+  id        String   @id @default(uuid())
+  leadId    String   @map("lead_id")
+  content   String   @db.Text
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("lead_notes")
+}
+
+// ─── Workflow Automation ──────────────────────────────────────────────────
+
+model Workflow {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  status        String   @default("active") @db.VarChar(30)
+  isDefault     Boolean  @default(false) @map("is_default")
+  triggerConfig Json?    @map("trigger_config")
+  conditions    Json?
+  version       Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company    Company              @relation(fields: [tenantId], references: [tenantId])
+  steps      WorkflowStep[]
+  executions WorkflowExecution[]
+  triggers   WorkflowTrigger[]
+  versions   WorkflowVersion[]
+
+  @@unique([tenantId, name])
+  @@map("workflows")
+}
+
+model WorkflowVersion {
+  id                String   @id @default(uuid())
+  workflowId        String   @map("workflow_id")
+  version           Int
+  snapshot          Json     // Full workflow + steps snapshot
+  changeDescription String?  @map("change_description") @db.Text
+  createdBy         String?  @map("created_by") @db.VarChar(255)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, version])
+  @@index([workflowId])
+  @@map("workflow_versions")
+}
+
+model WorkflowStep {
+  id                String   @id @default(uuid())
+  workflowId        String   @map("workflow_id")
+  order             Int
+  actionType        String   @db.VarChar(50)
+  config            Json?
+  isEnabled         Boolean  @default(true) @map("is_enabled")
+  nextStepOnSuccess String?  @map("next_step_on_success") // ID of next step if action succeeds
+  nextStepOnFailure String?  @map("next_step_on_failure") // ID of next step if action fails
+  conditions        Json?    // Complex condition rules for step execution
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  workflow   Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executions WorkflowStepExecution[]
+
+  @@index([workflowId, order])
+  @@map("workflow_steps")
+}
+
+model WorkflowExecution {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  workflowId  String    @map("workflow_id")
+  leadId      String    @map("lead_id")
+  status      String    @default("pending") @db.VarChar(30)
+  error       String?   @db.Text
+  metadata    Json?     // { triggeredBy: 'scheduled', triggerId: '...', testRun: false }
+  triggeredAt DateTime  @default(now()) @map("triggered_at")
+  completedAt DateTime? @map("completed_at")
+
+  company   Company                 @relation(fields: [tenantId], references: [tenantId])
+  workflow  Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  lead      Lead                    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  steps     WorkflowStepExecution[]
+
+  @@index([tenantId, workflowId])
+  @@index([leadId])
+  @@index([status])
+  @@map("workflow_executions")
+}
+
+model WorkflowStepExecution {
+  id          String    @id @default(uuid())
+  executionId String    @map("execution_id")
+  stepId      String    @map("step_id")
+  status      String    @default("pending") @db.VarChar(30)
+  result      Json?
+  error       String?   @db.Text
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  execution WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  step      WorkflowStep      @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@map("workflow_step_executions")
+}
+
+model WorkflowTrigger {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  workflowId      String    @map("workflow_id")
+  type            String    @db.VarChar(50) // 'scheduled', 'webhook', 'lead_score_change', 'lead_engagement', 'time_since_event', 'campaign_performance', 'batch_execution'
+  config          Json?     // trigger-specific config
+  webhookUrl      String?   @map("webhook_url") @db.Text
+  webhookSecret   String?   @map("webhook_secret") @db.Text // encrypted
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  schedule WorkflowSchedule?
+
+  @@index([workflowId])
+  @@index([type])
+  @@map("workflow_triggers")
+}
+
+model WorkflowSchedule {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  triggerId        String    @unique @map("trigger_id")
+  cronExpression   String    @map("cron_expression") @db.VarChar(100) // '0 9 * * MON' = 9am Monday
+  timezone         String    @default("UTC") @db.VarChar(50) // 'America/New_York'
+  lastRunAt        DateTime? @map("last_run_at")
+  nextRunAt        DateTime? @map("next_run_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  trigger WorkflowTrigger @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+
+  @@index([nextRunAt])
+  @@map("workflow_schedules")
+}
+
+
+// ─── Workflow Templates ────────────────────────────────────────────────────
+
+model WorkflowTemplate {
+  id                 String   @id @default(uuid())
+  name               String   @unique @db.VarChar(255)
+  description        String   @db.Text
+  category           String   @db.VarChar(50) // 'lead-management' | 'campaign-monitoring' | 'engagement'
+  workflowDefinition Json     @map("workflow_definition") // Full workflow + steps structure
+  isFeatured         Boolean  @default(false) @map("is_featured")
+  usageCount         Int      @default(0) @map("usage_count")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("workflow_templates")
+}
+
+// ─── Notifications ─────────────────────────────────────────────────────────
+
+model NotificationPreference {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  userId        String    @map("user_id")
+  notationType  String    @map("notification_type") @db.VarChar(50) // 'workflow_execution', 'lead_assignment', 'lead_status_change'
+  channel       String    @db.VarChar(30) // 'email', 'slack'
+  enabled       Boolean   @default(true)
+  slackChannel  String?   @map("slack_channel") @db.VarChar(255) // e.g., '#sales' or 'C1234567'
+  slackWebhook  String?   @map("slack_webhook") @db.Text // Encrypted webhook URL
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, notationType, channel])
+  @@index([tenantId, userId])
+  @@map("notification_preferences")
+}
+
+model Notification {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  userId          String?   @map("user_id")
+  type            String    @db.VarChar(50) // 'workflow_execution', 'lead_assignment', 'lead_status_change'
+  channel         String    @db.VarChar(30) // 'email', 'slack', 'in_app'
+  subject         String?   @db.VarChar(255)
+  message         String    @db.Text
+  recipients      Json      @default("[]") // Array of email/slack IDs
+  status          String    @default("pending") @db.VarChar(30) // 'pending', 'sent', 'failed'
+  sentAt          DateTime? @map("sent_at")
+  error           String?   @db.Text
+  metadata        Json?     // { workflowId, leadId, executionId, etc. }
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([status, sentAt])
+  @@map("notifications")
+}
+
+// ─── Audit Logging ─────────────────────────────────────────────────────────
+
+// ─── Tasks & Activities ────────────────────────────────────────────────────
+
+model Task {
+  id                    String    @id @default(uuid())
+  tenantId              String    @map("tenant_id")
+  title                 String    @db.VarChar(255)
+  description           String?   @db.Text
+  status                String    @default("open") @db.VarChar(30) // 'open', 'in_progress', 'completed', 'cancelled'
+  priority              String    @default("medium") @db.VarChar(20) // 'low', 'medium', 'high', 'urgent'
+  dueDate               DateTime? @map("due_date")
+  assigneeId            String?   @map("assignee_id")
+  leadId                String?   @map("lead_id")
+  workflowExecutionId   String?   @map("workflow_execution_id")
+  createdBy             String?   @map("created_by")
+  completedAt           DateTime? @map("completed_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  assignee  User? @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator   User? @relation("TaskCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  lead      Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([assigneeId])
+  @@index([leadId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model Activity {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  leadId    String?  @map("lead_id")
+  userId    String?  @map("user_id")
+  type      String   @db.VarChar(50) // 'note', 'call', 'email', 'status_change', 'score_change', 'task_created', 'workflow_run'
+  summary   String   @db.Text
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("activities")
+}
+
+// ─── Reporting ────────────────────────────────────────────────────────────────
+
+model ScheduledReport {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  name       String   @db.VarChar(255)
+  reportType String   @map("report_type") @db.VarChar(50) // 'campaign_performance', 'lead_scoring', 'workflow_summary'
+  schedule   String   @db.VarChar(50) // cron expression: '0 9 * * 1' (weekly Mon 9am)
+  recipients String[] // email addresses
+  filters    Json?    // { campaignId?, dateRange?, status? }
+  isActive   Boolean  @default(true) @map("is_active")
+  lastSentAt DateTime? @map("last_sent_at")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  creator User? @relation("ReportCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@map("scheduled_reports")
+}
+
+model SavedReport {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  name       String   @db.VarChar(255)
+  config     Json     // { metrics[], dimensions[], chartType, filters, dateRange }
+  isPublic   Boolean  @default(false) @map("is_public")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  creator User? @relation("SavedReportCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@map("saved_reports")
+}

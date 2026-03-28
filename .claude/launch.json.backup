@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "API",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--env-file=apps/api/.env", "node_modules/tsx/dist/cli.mjs", "watch", "apps/api/src/index.ts"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "Web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "apps/web"],
+      "port": 5173
+    },
+    {
+      "name": "Prisma Studio",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--env-file=apps/api/.env", "node_modules/prisma/build/index.js", "studio", "--config=apps/api/prisma.config.ts", "--port=5555", "--browser=none"],
+      "port": 5555
+    }
+  ]
+}

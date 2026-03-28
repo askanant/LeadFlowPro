@@ -1,0 +1,37 @@
+{
+  "name": "LeadFlowPro API",
+  "services": [
+    {
+      "key": "web",
+      "name": "leadflow-api",
+      "plan": "free",
+      "runtime": "node",
+      "buildCommand": "npm install --legacy-peer-deps && npm run db:generate && npm run build --workspace @leadflow/api",
+      "startCommand": "npm run start --workspace @leadflow/api",
+      "envVars": [
+        {
+          "key": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "key": "API_PORT",
+          "value": "3000"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "DATABASE_URL": {
+      "description": "PostgreSQL connection string from Neon",
+      "value": ""
+    },
+    "JWT_SECRET": {
+      "description": "Strong random secret for JWT signing",
+      "generateValue": true
+    },
+    "ENCRYPTION_KEY": {
+      "description": "32-byte hex encryption key",
+      "value": ""
+    }
+  }
+}
