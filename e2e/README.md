@@ -16,14 +16,19 @@ End-to-end tests using Playwright to verify core user flows.
    npx playwright install
    ```
 
-2. Ensure test data is seeded (demo tenant exists):
-   - Use credentials: `admin@acme.test` / `password`
-   - Database: PostgreSQL (Neon) with seed data
+2. Ensure database connectivity is configured in `apps/api/.env`:
+   - `DATABASE_URL` must point to a reachable PostgreSQL instance
+   - `PORT` should be `3000` for local development
 
-3. Both API and Web servers must be running:
+3. Ensure test data can be seeded:
+   - Use credentials: `admin@acme.test` / `password`
+   - Seed command: `npm -w apps/api run seed:test-user`
+
+4. API and Web servers are started automatically by Playwright config.
+   Optional manual start:
    ```bash
-   npm run dev --workspace=apps/api
-   npm run dev --workspace=apps/web
+   npm -w apps/api run dev
+   npm -w apps/web run dev
    ```
 
 ## Running Tests
@@ -56,7 +61,7 @@ npx playwright test --headed
 ## Test Configuration
 
 - **Base URL**: `http://localhost:5173`
-- **Browser**: Chromium
+- **Browsers**: Chromium and Firefox
 - **Timeout**: 30 seconds per test
 - **Retries**: 0 (local), 2 (CI)
 - **Screenshot**: On failure only
@@ -112,8 +117,8 @@ In CI environment:
 
 ## Common Issues
 
-1. **Port already in use**: Kill process on port 5173 or 3001
-2. **Test data not found**: Ensure seed.ts has run successfully
+1. **Port already in use**: Kill process on port 5173 or 3000
+2. **Seed failed before tests start**: Check `DATABASE_URL` in `apps/api/.env` and run `npm -w apps/api run seed:test-user`
 3. **Timeout errors**: Increase timeout or check network requests
 4. **Element not found**: Use `page.pause()` to debug selectors
 

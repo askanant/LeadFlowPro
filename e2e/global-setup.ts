@@ -17,13 +17,17 @@ export default function globalSetup() {
   } catch (error: any) {
     const stderr = error.stderr?.toString() || '';
     const stdout = error.stdout?.toString() || '';
+    const combinedOutput = `${stdout}\n${stderr}`;
+
     console.error('❌ Test user seeding FAILED');
-    if (stderr.includes("Can't reach database server") || stdout.includes("Can't reach database server")) {
+    if (combinedOutput.includes("Can't reach database server")) {
       console.error('   DATABASE_URL in apps/api/.env is unreachable.');
       console.error('   Ensure your database is running and the URL is correct.');
     }
     console.error('   STDERR:', stderr.slice(0, 500));
     console.error('   Run manually: npm -w apps/api run seed:test-user');
-    console.error('   E2E tests will likely fail due to missing test users.\n');
+    console.error('   Stopping E2E run because required test users are missing.\n');
+
+    throw new Error('E2E setup failed: could not seed test users.');
   }
 }
