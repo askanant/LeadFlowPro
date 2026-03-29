@@ -15,9 +15,6 @@
       "dest": "/index.html"
     }
   ],
-  "env": {
-    "VITE_API_URL": "@leadflow_api_url"
-  },
   "buildCommand": "npm run build --workspace @leadflow/web",
   "outputDirectory": "apps/web/dist"
 }
