@@ -38,6 +38,8 @@ apps/api/prisma/migrations/.gitkeep
 
 # Testing
 coverage/
+playwright-report/
+test-results/
 
 # Misc
 *.tsbuildinfo

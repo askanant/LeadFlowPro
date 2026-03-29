@@ -11,6 +11,7 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "seed": "node --env-file=.env ../../node_modules/tsx/dist/cli.mjs seed.ts",
+    "seed:test-user": "node --env-file=.env ../../node_modules/tsx/dist/cli.mjs seed-test-user.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

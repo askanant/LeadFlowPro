@@ -220,11 +220,21 @@ https://www.random.org/bytes/ (select 32 bytes, output as hex)
 
 ---
 
-## Redis Configuration (Optional, if using)
+## Redis Configuration (Optional but Recommended)
 
 ### 19. REDIS_URL
-**What it is**: Redis cache connection URL  
+**What it is**: Redis cache connection URL for rate limiting (replaces in-memory store)  
+**Why use it**: Provides distributed rate limiting across multiple server instances and persists across restarts  
 **Example**: `redis://default:password@host:6379`
+
+**Provider Options**:
+| Provider | Free Tier | URL Format |
+|----------|-----------|------------|
+| [Upstash](https://upstash.com/) | 10K commands/day | `rediss://default:xxx@xxx.upstash.io:6379` |
+| [Render Redis](https://render.com/docs/redis) | Included with paid plans | `redis://red-xxx:6379` |
+| [Railway](https://railway.app/) | $5/month credit | `redis://default:xxx@xxx.railway.app:6379` |
+
+**Behavior without Redis**: The application gracefully falls back to an in-memory rate limiter. This works fine for single-instance deployments.
 
 **Set in Render**:
 - Key: `REDIS_URL`
