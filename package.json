@@ -17,9 +17,9 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
+    "docker:up": "docker compose up -d || docker-compose up -d",
+    "docker:down": "docker compose down || docker-compose down",
+    "docker:logs": "docker compose logs -f || docker-compose logs -f",
     "audit:dependencies": "node scripts/check-dependencies.js",
     "sync:typescript": "bash scripts/sync-typescript-versions.sh"
   },
