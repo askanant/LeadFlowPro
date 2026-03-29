@@ -1,7 +1,5 @@
 {
   "buildCommand": "npm install --legacy-peer-deps --workspaces && npm run build --workspace @leadflow/web",
   "installCommand": "npm install --legacy-peer-deps --workspaces",
-  "framework": "vite",
-  "rootDirectory": "apps/web",
-  "outputDirectory": "dist"
+  "outputDirectory": "apps/web/dist"
 }
