@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 export class CreateEventExecutor implements IActionExecutor {
   async execute(config: Record<string, any>, context: ActionExecutionContext): Promise<StepExecutionResult> {
@@ -26,7 +27,7 @@ export class CreateEventExecutor implements IActionExecutor {
         },
       });
 
-      console.log('CreateEventExecutor: created event', {
+      LoggerService.logInfo('CreateEventExecutor: created event', {
         eventId: event.id,
         eventType,
         leadId,
@@ -38,7 +39,7 @@ export class CreateEventExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('CreateEventExecutor failed', { error: errorMsg });
+      LoggerService.logError('CreateEventExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

@@ -1,6 +1,7 @@
 import { ITriggerExecutor, TriggerExecutionContext, BatchTriggerConfig } from '../types';
 import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Bulk-executes a workflow on a filtered set of leads.
@@ -12,7 +13,7 @@ export class BatchExecutionTriggerExecutor implements ITriggerExecutor {
     const { filters } = config as BatchTriggerConfig;
 
     if (!filters || typeof filters !== 'object') {
-      console.warn('BatchExecutionTrigger: no filters provided');
+      LoggerService.logWarn('BatchExecutionTrigger: no filters provided');
       return;
     }
 
@@ -44,7 +45,7 @@ export class BatchExecutionTriggerExecutor implements ITriggerExecutor {
       orderBy: { createdAt: 'desc' },
     });
 
-    console.log('BatchExecutionTrigger: found leads', {
+    LoggerService.logInfo('BatchExecutionTrigger: found leads', {
       count: leads.length,
       filters,
     });
@@ -62,14 +63,14 @@ export class BatchExecutionTriggerExecutor implements ITriggerExecutor {
         successCount++;
       } catch (error) {
         failCount++;
-        console.error('BatchExecutionTrigger: failed for lead', {
+        LoggerService.logError('BatchExecutionTrigger: failed for lead', undefined, {
           leadId: lead.id,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
 
-    console.log('BatchExecutionTrigger: completed', {
+    LoggerService.logInfo('BatchExecutionTrigger: completed', {
       total: leads.length,
       successCount,
       failCount,

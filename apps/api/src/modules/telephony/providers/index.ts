@@ -2,6 +2,7 @@ import { config } from '../../../config';
 import { ExotelProvider } from './exotel.provider';
 import { TwilioProvider } from './twilio.provider';
 import type { ITelephonyProvider } from './types';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 export type { AvailableNumber, ITelephonyProvider, ProvisionResult } from './types';
 
@@ -21,6 +22,6 @@ export function getTelephonyProvider(): ITelephonyProvider {
       break;
   }
 
-  console.log(`📞 Telephony provider: ${_provider.name}`);
+  LoggerService.logInfo(`Telephony provider: ${_provider.name}`);
   return _provider;
 }

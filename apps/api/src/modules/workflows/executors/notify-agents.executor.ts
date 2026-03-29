@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 
 export class NotifyAgentsExecutor implements IActionExecutor {
@@ -23,14 +24,14 @@ export class NotifyAgentsExecutor implements IActionExecutor {
       });
 
       if (agents.length === 0) {
-        console.warn('No active agents found to notify', { tenantId });
+        LoggerService.logWarn('No active agents found to notify', { tenantId });
         return { success: true, data: { notifiedCount: 0 } };
       }
 
       // In production, send notifications via email/Slack/WhatsApp
       // For now, just log and return success
       const message = `New lead: ${lead.firstName} ${lead.lastName} (${lead.email})`;
-      console.log('Notifying agents of new lead', { tenantId, leadId, agentCount: agents.length });
+      LoggerService.logInfo('Notifying agents of new lead', { tenantId, leadId, agentCount: agents.length });
 
       return {
         success: true,
@@ -42,7 +43,7 @@ export class NotifyAgentsExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('NotifyAgentsExecutor failed', { error: errorMsg });
+      LoggerService.logError('NotifyAgentsExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

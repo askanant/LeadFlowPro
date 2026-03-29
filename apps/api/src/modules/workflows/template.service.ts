@@ -1,4 +1,5 @@
 import { prisma } from '../../shared/database/prisma';
+import { LoggerService } from '../../shared/services/logger.service';
 
 export class TemplateService {
   /**
@@ -321,6 +322,6 @@ export class TemplateService {
       });
     }
 
-    console.log(`Seeded ${templates.length} workflow templates`);
+    LoggerService.logInfo(`Seeded ${templates.length} workflow templates`);
   }
 }

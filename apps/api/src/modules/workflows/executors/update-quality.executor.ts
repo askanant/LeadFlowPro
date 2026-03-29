@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 
 export class UpdateQualityExecutor implements IActionExecutor {
@@ -31,7 +32,7 @@ export class UpdateQualityExecutor implements IActionExecutor {
         data: { qualityScore: newScore },
       });
 
-      console.log('Updated lead quality score', {
+      LoggerService.logInfo('Updated lead quality score', {
         leadId,
         oldScore: lead.qualityScore,
         newScore,
@@ -43,7 +44,7 @@ export class UpdateQualityExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('UpdateQualityExecutor failed', { error: errorMsg });
+      LoggerService.logError('UpdateQualityExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

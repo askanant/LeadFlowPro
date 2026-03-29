@@ -1,5 +1,6 @@
 import { ITriggerExecutor, TriggerExecutionContext } from '../types';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Manual triggers are invoked directly via API.
@@ -11,7 +12,7 @@ export class ManualTriggerExecutor implements ITriggerExecutor {
     const { leadId } = metadata || {};
 
     if (!leadId) {
-      console.warn('ManualTrigger: no leadId in metadata');
+      LoggerService.logWarn('ManualTrigger: no leadId in metadata');
       return;
     }
 
@@ -21,6 +22,6 @@ export class ManualTriggerExecutor implements ITriggerExecutor {
       ...(metadata?.testRun ? { testRun: true } : {}),
     });
 
-    console.log('ManualTrigger: executed', { workflowId, leadId });
+    LoggerService.logInfo('ManualTrigger: executed', { workflowId, leadId });
   }
 }

@@ -10,6 +10,72 @@ export const auditRouter = Router();
 // All audit endpoints require authentication + super_admin or company_admin
 auditRouter.use(requireAuth, requireRole('super_admin', 'company_admin'));
 
+/**
+ * @swagger
+ * /audit:
+ *   get:
+ *     tags: [Audit]
+ *     summary: List audit logs
+ *     description: Paginated audit log entries with optional filters
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 25
+ *       - in: query
+ *         name: action
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: resource
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Paginated audit logs
+ * /audit/actions:
+ *   get:
+ *     tags: [Audit]
+ *     summary: Get distinct audit actions
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of action types
+ * /audit/resources:
+ *   get:
+ *     tags: [Audit]
+ *     summary: Get distinct audit resources
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of resource types
+ * /audit/{id}:
+ *   get:
+ *     tags: [Audit]
+ *     summary: Get audit log entry by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Audit log entry
+ */
+
 const listSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),

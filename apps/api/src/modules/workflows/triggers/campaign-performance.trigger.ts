@@ -1,6 +1,7 @@
 import { ITriggerExecutor, TriggerExecutionContext } from '../types';
 import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow when campaign performance thresholds are met.
@@ -82,7 +83,7 @@ export class CampaignPerformanceTriggerExecutor implements ITriggerExecutor {
             threshold,
           });
         } catch (error) {
-          console.error('CampaignPerformanceTrigger: failed for lead', {
+          LoggerService.logError('CampaignPerformanceTrigger: failed for lead', undefined, {
             leadId: lead.id,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
@@ -90,6 +91,6 @@ export class CampaignPerformanceTriggerExecutor implements ITriggerExecutor {
       }
     }
 
-    console.log('CampaignPerformanceTrigger: evaluated', { workflowId, triggerId });
+    LoggerService.logInfo('CampaignPerformanceTrigger: evaluated', { workflowId, triggerId });
   }
 }

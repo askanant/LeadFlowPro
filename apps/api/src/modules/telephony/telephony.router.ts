@@ -11,6 +11,80 @@ export const telephonyRouter = Router();
 
 telephonyRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /telephony/provider:
+ *   get:
+ *     tags: [Telephony]
+ *     summary: Get active telephony provider
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current provider name
+ * /telephony/providers:
+ *   get:
+ *     tags: [Telephony]
+ *     summary: List available telephony providers
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of provider options
+ * /telephony/click-to-call:
+ *   post:
+ *     tags: [Telephony]
+ *     summary: Initiate a click-to-call
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phoneNumber, leadId]
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *               leadId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Call initiated
+ * /telephony/calls:
+ *   get:
+ *     tags: [Telephony]
+ *     summary: Get call history
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Call records
+ * /telephony/calls/{callId}/recording:
+ *   get:
+ *     tags: [Telephony]
+ *     summary: Get call recording URL
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: callId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Recording URL
+ * /telephony/webhook:
+ *   post:
+ *     tags: [Telephony]
+ *     summary: Telephony provider webhook callback
+ *     responses:
+ *       200:
+ *         description: Webhook processed
+ */
+
 // GET /api/v1/telephony/provider — which provider is active
 telephonyRouter.get('/provider', (req, res) => {
   const provider = getTelephonyProvider();

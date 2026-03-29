@@ -144,6 +144,39 @@ export class LoggerService {
     }
   }
 
+  // ── Simple convenience methods for replacing console.* calls ──────────────
+
+  /** Simple string-based info log with optional metadata */
+  static logInfo(message: string, meta?: Record<string, unknown>): void {
+    if (config.NODE_ENV === 'development') {
+      console.log(`[INFO] ${message}`, meta ?? '');
+    }
+    this.log({ level: 'info', message, code: 'INFO', ...(meta && { body: meta }) });
+  }
+
+  /** Simple string-based warning with optional metadata */
+  static logWarn(message: string, meta?: Record<string, unknown>): void {
+    if (config.NODE_ENV === 'development') {
+      console.warn(`[WARN] ${message}`, meta ?? '');
+    }
+    this.log({ level: 'warn', message, code: 'WARNING', ...(meta && { body: meta }) });
+  }
+
+  /** Simple string-based error log — captures to Sentry in production */
+  static logError(message: string, error?: unknown, meta?: Record<string, unknown>): void {
+    const stack = error instanceof Error ? error.stack : undefined;
+    if (config.NODE_ENV === 'development') {
+      console.error(`[ERROR] ${message}`, error ?? '', meta ?? '');
+    }
+    this.log({
+      level: 'error',
+      message,
+      code: 'ERROR',
+      stack,
+      ...(meta && { body: meta }),
+    });
+  }
+
   /**
    * Redact sensitive fields from an object
    */

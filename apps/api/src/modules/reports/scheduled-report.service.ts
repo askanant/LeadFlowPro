@@ -3,6 +3,7 @@ import * as cron from 'node-cron';
 import nodemailer from 'nodemailer';
 import { CronExpressionParser } from 'cron-parser';
 import { reportGeneratorService } from './report-generator.service';
+import { LoggerService } from '../../shared/services/logger.service';
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ async function sendScheduledReport(report: any) {
         subject = `Growth Optimization Report – ${new Date().toLocaleDateString()}`;
         break;
       default:
-        console.error(`Unknown report type: ${report.reportType}`);
+        LoggerService.logError(`Unknown report type: ${report.reportType}`);
         return;
     }
 
@@ -145,9 +146,9 @@ async function sendScheduledReport(report: any) {
       data: { lastSentAt: new Date() },
     });
 
-    console.log(`📧 Sent scheduled report "${report.name}" to ${report.recipients.length} recipients`);
+    LoggerService.logInfo(`Sent scheduled report "${report.name}" to ${report.recipients.length} recipients`);
   } catch (error) {
-    console.error(`Failed to send report "${report.name}":`, error);
+      LoggerService.logError(`Failed to send report "${report.name}"`, error instanceof Error ? error : undefined);
   }
 }
 
@@ -167,11 +168,11 @@ function startReportCron() {
         }
       }
     } catch (error) {
-      console.error('Report cron job error:', error);
+      LoggerService.logError('Report cron job error', error instanceof Error ? error : undefined);
     }
   });
 
-  console.log('📅 Scheduled report cron started');
+  LoggerService.logInfo('Scheduled report cron started');
 }
 
 function stopReportCron() {

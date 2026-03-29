@@ -8,7 +8,99 @@ import { z } from 'zod';
 export const reportsRouter = Router();
 
 reportsRouter.use(requireAuth);
-
+/**
+ * @swagger
+ * /reports/campaign-performance/pdf:
+ *   get:
+ *     tags: [Reports]
+ *     summary: Generate campaign performance PDF
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: campaignId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: dateFrom
+ *         schema:
+ *           type: string
+ *           format: date
+ *       - in: query
+ *         name: dateTo
+ *         schema:
+ *           type: string
+ *           format: date
+ *     responses:
+ *       200:
+ *         description: PDF file
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ * /reports/leads/csv:
+ *   get:
+ *     tags: [Reports]
+ *     summary: Export leads as CSV
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: CSV file
+ * /reports/scheduled:
+ *   get:
+ *     tags: [Reports]
+ *     summary: List scheduled reports
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of scheduled reports
+ *   post:
+ *     tags: [Reports]
+ *     summary: Create scheduled report
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, reportType, schedule, recipients]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               reportType:
+ *                 type: string
+ *               schedule:
+ *                 type: string
+ *               recipients:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       201:
+ *         description: Scheduled report created
+ * /reports/saved:
+ *   get:
+ *     tags: [Reports]
+ *     summary: List saved custom reports
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of saved reports
+ *   post:
+ *     tags: [Reports]
+ *     summary: Create saved custom report
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Custom report saved
+ */
 // ─── PDF Export Endpoints ─────────────────────────────────────────────────────
 
 const filtersSchema = z.object({

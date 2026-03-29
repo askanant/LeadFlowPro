@@ -9,6 +9,77 @@ function getTenantId(req: Request) {
 }
 
 /**
+ * @swagger
+ * /lead-assignment/agents:
+ *   get:
+ *     tags: [Lead Assignment]
+ *     summary: Get available agents for assignment
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of agents
+ * /lead-assignment/config:
+ *   get:
+ *     tags: [Lead Assignment]
+ *     summary: Get assignment configuration
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Assignment config
+ *   put:
+ *     tags: [Lead Assignment]
+ *     summary: Update assignment configuration
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Config updated
+ * /lead-assignment/assign:
+ *   post:
+ *     tags: [Lead Assignment]
+ *     summary: Manually assign leads to agents
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [leadIds, agentId]
+ *             properties:
+ *               leadIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               agentId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Leads assigned
+ * /lead-assignment/auto-assign:
+ *   post:
+ *     tags: [Lead Assignment]
+ *     summary: Auto-assign unassigned leads
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Auto-assignment result
+ * /lead-assignment/stats:
+ *   get:
+ *     tags: [Lead Assignment]
+ *     summary: Get assignment statistics
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Assignment statistics
+ */
+
+/**
  * Get available agents
  */
 router.get('/agents', requireAuth, async (req: Request, res: Response, next: NextFunction) => {

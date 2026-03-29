@@ -2,6 +2,7 @@ import { prisma } from '../../shared/database/prisma';
 import { ActionType, ActionExecutionContext, StepExecutionResult } from './types';
 import { getActionExecutor } from './executors';
 import { emitToTenant } from '../../shared/websocket/socket';
+import { LoggerService } from '../../shared/services/logger.service';
 
 export class WorkflowEngine {
   /**
@@ -143,7 +144,7 @@ export class WorkflowEngine {
         // Silently fail if update fails (execution record might not exist)
       });
 
-      console.error('Workflow execution failed', { executionId, error });
+      LoggerService.logError('Workflow execution failed', error instanceof Error ? error : undefined, { executionId });
       throw error;
     }
   }

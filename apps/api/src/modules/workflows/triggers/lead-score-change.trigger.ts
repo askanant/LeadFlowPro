@@ -1,5 +1,6 @@
 import { ITriggerExecutor, TriggerExecutionContext, LeadScoreTriggerConfig } from '../types';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow when a lead's quality score changes.
@@ -11,7 +12,7 @@ export class LeadScoreChangeTriggerExecutor implements ITriggerExecutor {
     const { leadId, oldScore, newScore } = metadata || {};
 
     if (!leadId) {
-      console.warn('LeadScoreChangeTrigger: no leadId in metadata');
+      LoggerService.logWarn('LeadScoreChangeTrigger: no leadId in metadata');
       return;
     }
 
@@ -32,6 +33,6 @@ export class LeadScoreChangeTriggerExecutor implements ITriggerExecutor {
       newScore,
     });
 
-    console.log('LeadScoreChangeTrigger: executed', { workflowId, leadId, oldScore, newScore });
+    LoggerService.logInfo('LeadScoreChangeTrigger: executed', { workflowId, leadId, oldScore, newScore });
   }
 }

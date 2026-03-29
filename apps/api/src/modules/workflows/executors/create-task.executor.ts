@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 export class CreateTaskExecutor implements IActionExecutor {
   async execute(config: Record<string, any>, context: ActionExecutionContext): Promise<StepExecutionResult> {
@@ -59,7 +60,7 @@ export class CreateTaskExecutor implements IActionExecutor {
         },
       });
 
-      console.log('CreateTaskExecutor: created task', {
+      LoggerService.logInfo('CreateTaskExecutor: created task', {
         taskId: task.id,
         title: finalTitle,
         leadId,
@@ -76,7 +77,7 @@ export class CreateTaskExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('CreateTaskExecutor failed', { error: errorMsg });
+      LoggerService.logError('CreateTaskExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

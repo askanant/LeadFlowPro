@@ -7,13 +7,61 @@ import { leadsService } from '../leads/leads.service';
 import { billingService } from '../billing/billing.service';
 import { prisma } from '../../shared/database/prisma';
 import { stripeService } from '../billing/stripe.service';
+import { EncryptionService } from '../../shared/services/encryption.service';
+import { LoggerService } from '../../shared/services/logger.service';
 
 const s3 = config.S3_BUCKET_RECORDINGS
   ? new S3Client({ region: config.AWS_REGION })
   : null;
 
 export const webhooksRouter = Router();
-
+/**
+ * @swagger
+ * /webhooks/stripe:
+ *   post:
+ *     tags: [Webhooks]
+ *     summary: Stripe webhook for subscription events
+ *     description: Handles checkout, payment, and cancellation events from Stripe
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Webhook processed
+ *       400:
+ *         description: Invalid signature
+ * /webhooks/inbound:
+ *   post:
+ *     tags: [Webhooks]
+ *     summary: Inbound lead webhook
+ *     description: Accepts leads from external sources (landing pages, forms)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               source:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Lead created
+ *       400:
+ *         description: Validation error
+ */
 // ─── Stripe Webhooks ──────────────────────────────────────────────────────────
 
 // POST — Stripe webhook for subscription events (checkout, payment, cancellation)
@@ -23,7 +71,7 @@ webhooksRouter.post(
   async (req: Request, res: Response) => {
     try {
       if (!config.STRIPE_WEBHOOK_SECRET) {
-        console.warn('STRIPE_WEBHOOK_SECRET not configured');
+        LoggerService.logWarn('STRIPE_WEBHOOK_SECRET not configured');
         return res.status(400).json({ error: 'Webhook secret not configured' });
       }
 
@@ -49,7 +97,7 @@ webhooksRouter.post(
           config.STRIPE_WEBHOOK_SECRET
         );
       } catch (err) {
-        console.error('Webhook signature verification failed:', err);
+        LoggerService.logError('Webhook signature verification failed', err);
         return res.status(400).json({ error: 'Webhook signature verification failed' });
       }
 
@@ -59,7 +107,7 @@ webhooksRouter.post(
       // Return a success response
       res.json({ received: true, eventId: event.id });
     } catch (error) {
-      console.error('Stripe webhook processing error:', error);
+      LoggerService.logError('Stripe webhook processing error', error);
       res.status(500).json({ error: (error as Error).message });
     }
   }
@@ -67,14 +115,31 @@ webhooksRouter.post(
 
 // ─── Meta Ads Webhooks ────────────────────────────────────────────────────────
 
+// SECURITY: Validate that tenantId exists before processing webhook
+async function validateTenantExists(tenantId: string): Promise<boolean> {
+  const tenant = await prisma.company.findUnique({
+    where: { tenantId },
+    select: { tenantId: true },
+  });
+  return !!tenant;
+}
+
 // GET — Meta webhook verification challenge
-webhooksRouter.get('/meta/:tenantId', (req: Request, res: Response) => {
+webhooksRouter.get('/meta/:tenantId', async (req: Request, res: Response) => {
+  const { tenantId } = req.params;
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
+  // SECURITY FIX: Validate tenantId exists to prevent setup of arbitrary webhooks
+  const tenantExists = await validateTenantExists(tenantId);
+  if (!tenantExists) {
+    LoggerService.logWarn(`Webhook verification attempted for non-existent tenant: ${tenantId}`);
+    return res.sendStatus(403);
+  }
+
   if (mode === 'subscribe' && token === config.META_WEBHOOK_VERIFY_TOKEN) {
-    console.log(`✅ Meta webhook verified for tenant ${req.params['tenantId']}`);
+    LoggerService.logInfo(`Meta webhook verified for tenant ${tenantId}`);
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
@@ -84,6 +149,13 @@ webhooksRouter.get('/meta/:tenantId', (req: Request, res: Response) => {
 // POST — Meta lead webhook
 webhooksRouter.post('/meta/:tenantId', async (req: Request, res: Response) => {
   const { tenantId } = req.params;
+
+  // SECURITY FIX: Validate tenantId exists to prevent lead injection
+  const tenantExists = await validateTenantExists(tenantId);
+  if (!tenantExists) {
+    LoggerService.logWarn(`Lead injection attempt detected for non-existent tenant: ${tenantId}`);
+    return res.sendStatus(403);
+  }
 
   // Verify Meta signature
   if (config.META_APP_SECRET) {
@@ -97,7 +169,7 @@ webhooksRouter.post('/meta/:tenantId', async (req: Request, res: Response) => {
         .digest('hex')}`;
 
       if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
-        console.warn(`❌ Invalid Meta webhook signature for tenant ${tenantId}`);
+        LoggerService.logWarn(`Invalid Meta webhook signature for tenant ${tenantId}`);
         return res.sendStatus(403);
       }
     }
@@ -124,7 +196,7 @@ webhooksRouter.post('/meta/:tenantId', async (req: Request, res: Response) => {
       }
     }
   } catch (err) {
-    console.error('Meta webhook processing error:', err);
+    LoggerService.logError('Meta webhook processing error', err);
   }
 });
 
@@ -132,7 +204,7 @@ async function processMetaLead(tenantId: string, leadgenId: string) {
   // Check billing quota before ingesting lead
   const canStore = await billingService.canStoreLead(tenantId, undefined);
   if (!canStore) {
-    console.warn(`⚠️  Lead quota exceeded for tenant ${tenantId} — skipping Meta lead ${leadgenId}`);
+    LoggerService.logWarn(`Lead quota exceeded for tenant ${tenantId} — skipping Meta lead ${leadgenId}`);
     return;
   }
 
@@ -140,16 +212,33 @@ async function processMetaLead(tenantId: string, leadgenId: string) {
     where: { tenantId, platform: 'meta', isValid: true },
   });
 
-  if (!creds?.accessToken) {
-    console.error(`No valid Meta credentials for tenant ${tenantId}`);
+  if (!creds) {
+    LoggerService.logError(`No Meta ad platform credentials found for tenant ${tenantId}`);
     return;
   }
 
-  const url = `https://graph.facebook.com/v18.0/${leadgenId}?fields=field_data,created_time&access_token=${creds.accessToken}`;
+  // Decrypt credentials (support encrypted + legacy plaintext)
+  let accessToken: string | undefined;
+  if (creds.encryptedCredentials && creds.credentialsIV) {
+    const decrypted = await EncryptionService.decryptObject<{ accessToken?: string }>(
+      creds.encryptedCredentials,
+      creds.credentialsIV
+    );
+    accessToken = decrypted.accessToken;
+  } else {
+    accessToken = creds.accessToken ?? undefined;
+  }
+
+  if (!accessToken) {
+    LoggerService.logError(`No valid Meta access token for tenant ${tenantId} (decryption returned empty)`);
+    return;
+  }
+
+  const url = `https://graph.facebook.com/v18.0/${encodeURIComponent(leadgenId)}?fields=field_data,created_time&access_token=${encodeURIComponent(accessToken)}`;
   const response = await fetch(url);
 
   if (!response.ok) {
-    console.error(`Failed to fetch Meta lead ${leadgenId}:`, await response.text());
+    LoggerService.logError(`Failed to fetch Meta lead ${leadgenId}`, undefined, { response: await response.text() });
     return;
   }
 
@@ -182,21 +271,21 @@ async function processMetaLead(tenantId: string, leadgenId: string) {
   });
 
   if (duplicate) {
-    console.log(`⚠️  Duplicate Meta lead ${leadgenId} skipped`);
+    LoggerService.logInfo(`Duplicate Meta lead ${leadgenId} skipped`);
     return;
   }
 
-  console.log(`✅ Ingested Meta lead ${leadgenId} → ${lead.id} for tenant ${tenantId}`);
+  LoggerService.logInfo(`Ingested Meta lead ${leadgenId} → ${lead.id} for tenant ${tenantId}`);
 
   // Trigger WhatsApp delivery (fire and forget)
   deliverLeadViaWhatsApp(tenantId, lead).catch((err) =>
-    console.error('WhatsApp delivery error:', err)
+    LoggerService.logError('WhatsApp delivery error', err)
   );
 }
 
 async function deliverLeadViaWhatsApp(tenantId: string, lead: any) {
   if (!config.WHATSAPP_PHONE_NUMBER_ID || !config.WHATSAPP_SYSTEM_USER_TOKEN) {
-    console.log('WhatsApp not configured — skipping delivery');
+    LoggerService.logInfo('WhatsApp not configured — skipping delivery');
     return;
   }
 
@@ -208,7 +297,7 @@ async function deliverLeadViaWhatsApp(tenantId: string, lead: any) {
   const settings = company?.settings as Record<string, any> | null;
   const whatsappNumber = settings?.['whatsappDeliveryNumber'];
   if (!whatsappNumber) {
-    console.log(`No WhatsApp delivery number configured for tenant ${tenantId}`);
+    LoggerService.logInfo(`No WhatsApp delivery number configured for tenant ${tenantId}`);
     return;
   }
 
@@ -266,7 +355,7 @@ async function deliverLeadViaWhatsApp(tenantId: string, lead: any) {
     },
   });
 
-  console.log(`📱 WhatsApp delivery ${success ? '✅' : '❌'} for lead ${lead.id}`);
+  LoggerService.logInfo(`WhatsApp delivery ${success ? 'success' : 'failed'} for lead ${lead.id}`);
 }
 
 // ─── Shared recording upload helper ──────────────────────────────────────────
@@ -295,7 +384,7 @@ async function uploadRecordingToS3(
     }),
   );
 
-  console.log(`📼 Recording uploaded to S3: ${key}`);
+  LoggerService.logInfo(`Recording uploaded to S3: ${key}`);
   return `https://${config.S3_BUCKET_RECORDINGS}.s3.${config.AWS_REGION}.amazonaws.com/${key}`;
 }
 
@@ -375,7 +464,7 @@ webhooksRouter.post('/twilio/recording', async (req: Request, res: Response) => 
       twilioAuth,
     );
   } catch (err) {
-    console.error('S3 recording upload failed, using Twilio URL:', err);
+    LoggerService.logError('S3 recording upload failed, using Twilio URL', err);
   }
 
   await prisma.callLog.updateMany({
@@ -465,7 +554,7 @@ webhooksRouter.post('/exotel/recording', async (req: Request, res: Response) => 
     // Exotel recording URLs are publicly accessible — no Basic auth needed
     finalRecordingUrl = await uploadRecordingToS3(RecordingUrl, CallSid, callLog?.tenantId);
   } catch (err) {
-    console.error('S3 recording upload failed, using Exotel URL:', err);
+    LoggerService.logError('S3 recording upload failed, using Exotel URL', err);
   }
 
   await prisma.callLog.updateMany({
@@ -520,5 +609,5 @@ async function matchCallToLead(callLog: {
     data: { leadId: lead.id },
   });
 
-  console.log(`🔗 Matched call ${callLog.id} to lead ${lead.id}`);
+  LoggerService.logInfo(`Matched call ${callLog.id} to lead ${lead.id}`);
 }

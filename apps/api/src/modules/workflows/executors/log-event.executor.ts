@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 
 export class LogEventExecutor implements IActionExecutor {
@@ -29,7 +30,7 @@ export class LogEventExecutor implements IActionExecutor {
         },
       });
 
-      console.log('Logged workflow event', {
+      LoggerService.logInfo('Logged workflow event', {
         tenantId,
         leadId,
         eventType,
@@ -42,7 +43,7 @@ export class LogEventExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('LogEventExecutor failed', { error: errorMsg });
+      LoggerService.logError('LogEventExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

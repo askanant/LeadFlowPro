@@ -3,12 +3,63 @@ import { z } from 'zod';
 import { prisma, Prisma } from '../../shared/database/prisma';
 import { requireAuth } from '../../shared/middleware/auth.middleware';
 import { sendSuccess } from '../../shared/utils/response';
+import { EncryptionService } from '../../shared/services/encryption.service';
 
 export const settingsRouter = Router();
 
 // All routes require auth
 settingsRouter.use(requireAuth);
-
+/**
+ * @swagger
+ * /settings/company:
+ *   get:
+ *     tags: [Settings]
+ *     summary: Get company profile settings
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Company settings
+ *   patch:
+ *     tags: [Settings]
+ *     summary: Update company profile settings
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               industry:
+ *                 type: string
+ *               targetGeo:
+ *                 type: string
+ *               timezone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Company updated
+ * /settings/integrations:
+ *   get:
+ *     tags: [Settings]
+ *     summary: Get integration settings
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Integration config
+ *   put:
+ *     tags: [Settings]
+ *     summary: Update integration settings
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Integrations updated
+ */
 // ─── Company Profile ──────────────────────────────────────────────────────────
 
 const companyUpdateSchema = z.object({
@@ -150,8 +201,7 @@ settingsRouter.get('/integrations', async (req, res) => {
         appId: true,
         isValid: true,
         tokenExpiresAt: true,
-        // Return presence flags only — never expose raw tokens
-        accessToken: true,
+        encryptedCredentials: true,
       },
     }),
   ]);
@@ -168,7 +218,7 @@ settingsRouter.get('/integrations', async (req, res) => {
           connected: metaCreds.isValid,
           accountId: metaCreds.accountId ?? null,
           appId: metaCreds.appId ?? null,
-          hasAccessToken: Boolean(metaCreds.accessToken),
+          hasAccessToken: Boolean(metaCreds.encryptedCredentials),
           tokenExpiresAt: metaCreds.tokenExpiresAt ?? null,
         }
       : { connected: false, accountId: null, appId: null, hasAccessToken: false, tokenExpiresAt: null },
@@ -208,22 +258,47 @@ settingsRouter.put('/integrations', async (req, res) => {
   // Upsert Meta Ads credential
   if (data.meta) {
     const { accessToken, accountId, appId, appSecret } = data.meta;
+
+    // Encrypt sensitive credentials before storage
+    const sensitiveData: Record<string, string> = {};
+    if (accessToken) sensitiveData.accessToken = accessToken;
+    if (appSecret) sensitiveData.appSecret = appSecret;
+
+    let encryptedFields: { encryptedCredentials: string; credentialsIV: string } | undefined;
+    if (Object.keys(sensitiveData).length > 0) {
+      // Merge with existing encrypted credentials if partial update
+      const existing = await prisma.adPlatformCredential.findUnique({
+        where: { tenantId_platform: { tenantId, platform: 'meta' } },
+        select: { encryptedCredentials: true, credentialsIV: true },
+      });
+
+      let merged = { ...sensitiveData };
+      if (existing?.encryptedCredentials && existing.credentialsIV) {
+        const decrypted = await EncryptionService.decryptObject<Record<string, string>>(
+          existing.encryptedCredentials,
+          existing.credentialsIV
+        );
+        merged = { ...decrypted, ...sensitiveData };
+      }
+
+      const { encrypted, iv } = await EncryptionService.encryptObject(merged);
+      encryptedFields = { encryptedCredentials: encrypted, credentialsIV: iv };
+    }
+
     await prisma.adPlatformCredential.upsert({
       where: { tenantId_platform: { tenantId, platform: 'meta' } },
       create: {
         tenantId,
         platform: 'meta',
-        ...(accessToken && { accessToken }),
         ...(accountId && { accountId }),
         ...(appId && { appId }),
-        ...(appSecret && { appSecret }),
+        ...(encryptedFields ?? {}),
         isValid: true,
       },
       update: {
-        ...(accessToken !== undefined && { accessToken }),
         ...(accountId !== undefined && { accountId }),
         ...(appId !== undefined && { appId }),
-        ...(appSecret !== undefined && { appSecret }),
+        ...(encryptedFields ?? {}),
         isValid: true,
       },
     });
@@ -237,7 +312,7 @@ settingsRouter.put('/integrations', async (req, res) => {
     }),
     prisma.adPlatformCredential.findFirst({
       where: { tenantId, platform: 'meta' },
-      select: { accountId: true, appId: true, isValid: true, tokenExpiresAt: true, accessToken: true },
+      select: { accountId: true, appId: true, isValid: true, tokenExpiresAt: true, encryptedCredentials: true },
     }),
   ]);
 
@@ -253,7 +328,7 @@ settingsRouter.put('/integrations', async (req, res) => {
           connected: metaCreds.isValid,
           accountId: metaCreds.accountId ?? null,
           appId: metaCreds.appId ?? null,
-          hasAccessToken: Boolean(metaCreds.accessToken),
+          hasAccessToken: Boolean(metaCreds.encryptedCredentials),
           tokenExpiresAt: metaCreds.tokenExpiresAt ?? null,
         }
       : { connected: false, accountId: null, appId: null, hasAccessToken: false, tokenExpiresAt: null },

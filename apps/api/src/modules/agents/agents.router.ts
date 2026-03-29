@@ -8,6 +8,73 @@ export const agentsRouter = Router();
 
 agentsRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /agents:
+ *   get:
+ *     tags: [Agents]
+ *     summary: List agents for tenant
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of agents
+ *   post:
+ *     tags: [Agents]
+ *     summary: Create new agent
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, firstName, lastName]
+ *             properties:
+ *               email:
+ *                 type: string
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [viewer, company_admin]
+ *     responses:
+ *       201:
+ *         description: Agent created
+ * /agents/{id}:
+ *   get:
+ *     tags: [Agents]
+ *     summary: Get agent by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Agent details
+ *   delete:
+ *     tags: [Agents]
+ *     summary: Deactivate agent
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Agent deactivated
+ */
+
 // GET /api/v1/agents
 agentsRouter.get('/', async (req, res) => {
   const tenantId =

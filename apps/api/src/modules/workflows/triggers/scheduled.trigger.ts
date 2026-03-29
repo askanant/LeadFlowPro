@@ -3,6 +3,7 @@ import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
 import cron from 'node-cron';
 import * as parser from 'cron-parser';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 interface ScheduleEntry {
   triggerId: string;
@@ -56,7 +57,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
           timezone
         );
       } catch (error) {
-        console.error('Scheduled workflow execution failed', {
+        LoggerService.logError('Scheduled workflow execution failed', undefined, {
           triggerId,
           workflowId,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -70,7 +71,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
     // Calculate and store next run time
     await this.updateNextRunTime(triggerId, cronExpression, timezone);
 
-    console.log('Scheduled trigger started', {
+    LoggerService.logInfo('Scheduled trigger started', {
       triggerId,
       workflowId,
       cronExpression,
@@ -86,7 +87,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
     if (entry) {
       entry.task.stop();
       ScheduledTriggerExecutor.schedules.delete(triggerId);
-      console.log('Scheduled trigger stopped', { triggerId });
+      LoggerService.logInfo('Scheduled trigger stopped', { triggerId });
     }
   }
 
@@ -96,7 +97,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
   static async stopAll(): Promise<void> {
     for (const [triggerId, entry] of ScheduledTriggerExecutor.schedules) {
       entry.task.stop();
-      console.log('Stopped scheduled trigger on shutdown', { triggerId });
+      LoggerService.logInfo('Stopped scheduled trigger on shutdown', { triggerId });
     }
     ScheduledTriggerExecutor.schedules.clear();
   }
@@ -123,7 +124,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
       }
 
       if (workflow.status !== 'active') {
-        console.log('Workflow is not active, skipping execution', { workflowId });
+        LoggerService.logInfo('Workflow is not active, skipping execution', { workflowId });
         return;
       }
 
@@ -137,7 +138,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
       });
 
       if (leads.length === 0) {
-        console.log('No leads match workflow conditions', { workflowId });
+        LoggerService.logInfo('No leads match workflow conditions', { workflowId });
         return;
       }
 
@@ -153,7 +154,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
           );
           executionIds.push(executionId);
         } catch (error) {
-          console.error('Failed to execute workflow for lead', {
+          LoggerService.logError('Failed to execute workflow for lead', undefined, {
             workflowId,
             leadId: lead.id,
             error: error instanceof Error ? error.message : 'Unknown error',
@@ -162,7 +163,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
         }
       }
 
-      console.log('Scheduled workflow execution completed', {
+      LoggerService.logInfo('Scheduled workflow execution completed', {
         workflowId,
         triggerId,
         leadsProcessed: leads.length,
@@ -172,17 +173,16 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
       // Update schedule record with last run and next run times
       await this.updateNextRunTime(triggerId, cronExpression, timezone, new Date());
 
-      console.log('Scheduled trigger executed and rescheduled', {
+      LoggerService.logInfo('Scheduled trigger executed and rescheduled', {
         triggerId,
         workflowId,
         lastRunAt: new Date().toISOString(),
         nextRunAt: parser.default.parse(cronExpression, { tz: timezone, currentDate: new Date() }).next().toISOString(),
       });
     } catch (error) {
-      console.error('Scheduled workflow execution failed', {
+      LoggerService.logError('Scheduled workflow execution failed', error instanceof Error ? error : undefined, {
         workflowId,
         triggerId,
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -247,7 +247,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
         data,
       });
     } catch (error) {
-      console.error('Failed to update next run time', {
+      LoggerService.logError('Failed to update next run time', undefined, {
         triggerId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -270,7 +270,7 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
         },
       });
 
-      console.log(`Initializing ${triggers.length} scheduled triggers...`);
+      LoggerService.logInfo(`Initializing ${triggers.length} scheduled triggers...`);
 
       for (const trigger of triggers) {
         if (!trigger.schedule) continue;
@@ -289,18 +289,16 @@ export class ScheduledTriggerExecutor implements ITriggerExecutor {
             }
           );
         } catch (error) {
-          console.error('Failed to initialize scheduled trigger', {
+          LoggerService.logError('Failed to initialize scheduled trigger', undefined, {
             triggerId: trigger.id,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
 
-      console.log('Scheduled triggers initialized');
+      LoggerService.logInfo('Scheduled triggers initialized');
     } catch (error) {
-      console.error('Failed to initialize scheduled triggers', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      LoggerService.logError('Failed to initialize scheduled triggers', error instanceof Error ? error : undefined);
     }
   }
 }

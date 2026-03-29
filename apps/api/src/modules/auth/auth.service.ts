@@ -5,6 +5,10 @@ import { prisma } from '../../shared/database/prisma';
 import { config } from '../../config';
 import { ConflictError, NotFoundError, UnauthorizedError } from '../../shared/utils/errors';
 import { AuthPayload } from '../../shared/middleware/auth.middleware';
+import { LoggerService } from '../../shared/services/logger.service';
+
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
 export class AuthService {
   async register(data: {
@@ -32,7 +36,7 @@ export class AuthService {
         action: 'register',
         resource: 'user',
         resourceId: '', // Will be set after user creation
-      }).catch(err => console.error('Audit log failed:', err));
+      }).catch(err => LoggerService.logError('Audit log failed', err));
       const user = await tx.user.create({
         data: {
           tenantId: company.tenantId,
@@ -56,8 +60,53 @@ export class AuthService {
     if (!user || !user.passwordHash) throw new UnauthorizedError('Invalid credentials');
     if (!user.isActive) throw new UnauthorizedError('Account is disabled');
 
+    // SECURITY: Account lockout check — prevent brute force attacks
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const remainingMs = user.lockedUntil.getTime() - Date.now();
+      const remainingMin = Math.ceil(remainingMs / 60000);
+      throw new UnauthorizedError(
+        `Account is temporarily locked. Try again in ${remainingMin} minute${remainingMin === 1 ? '' : 's'}.`
+      );
+    }
+
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) throw new UnauthorizedError('Invalid credentials');
+    if (!valid) {
+      // SECURITY: Increment failed login attempts and lock if threshold reached
+      const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
+      const updateData: Record<string, any> = { failedLoginAttempts: newFailedAttempts };
+
+      if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
+        updateData.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MS);
+        AuditService.logSuccess({
+          tenantId: user.tenantId,
+          userId: user.id,
+          action: 'account_locked',
+          resource: 'user',
+          resourceId: user.id,
+          metadata: { reason: 'max_failed_attempts', attempts: newFailedAttempts },
+        }).catch(err => LoggerService.logError('Audit log failed', err));
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: updateData,
+      });
+
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    // SECURITY: Reset failed attempts on successful login
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
+      });
+    } else {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      });
+    }
 
     // If 2FA is enabled, return a temporary token for the second step
     if (user.twoFactorEnabled && user.totpSecret) {
@@ -69,20 +118,16 @@ export class AuthService {
       return { requiresTwoFactor: true, twoFactorToken };
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
-        // Audit log: successful login
+    // Audit log: successful login
     AuditService.logSuccess({
       tenantId: user.tenantId,
       userId: user.id,
       action: 'login',
       resource: 'user',
       resourceId: user.id,
-    }).catch(err => console.error('Audit log failed:', err));
-const tokens = this.generateTokens(user);
+    }).catch(err => LoggerService.logError('Audit log failed', err));
+
+    const tokens = this.generateTokens(user);
     return { user: this.sanitizeUser(user), ...tokens };
   }
 
@@ -116,7 +161,7 @@ const tokens = this.generateTokens(user);
       action: 'login_2fa',
       resource: 'user',
       resourceId: user.id,
-    }).catch(err => console.error('Audit log failed:', err));
+    }).catch(err => LoggerService.logError('Audit log failed', err));
 
     const tokens = this.generateTokens(user);
     return { user: this.sanitizeUser(user), ...tokens };
@@ -124,15 +169,54 @@ const tokens = this.generateTokens(user);
 
   async refreshToken(token: string) {
     try {
-      const payload = jwt.verify(token, config.JWT_SECRET) as AuthPayload & { type: string };
+      const payload = jwt.verify(token, config.JWT_SECRET) as AuthPayload & { type: string; iat: number; exp: number };
       if (payload.type !== 'refresh') throw new UnauthorizedError('Invalid token type');
 
       const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-      if (!user || !user.isActive) throw new UnauthorizedError('User not found');
+      if (!user || !user.isActive) throw new UnauthorizedError('User not found or inactive');
+
+      // CRITICAL SECURITY FIX: Check if this refresh token has been blacklisted (revoked)
+      // This prevents use of compromised or intentionally revoked tokens
+      const isBlacklisted = await prisma.tokenBlacklist.findUnique({
+        where: {
+          userId_tokenJti: {
+            userId: payload.userId,
+            tokenJti: token,
+          }
+        }
+      });
+
+      if (isBlacklisted) {
+        throw new UnauthorizedError('Refresh token has been revoked');
+      }
 
       return this.generateTokens(user);
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedError) throw error;
       throw new UnauthorizedError('Invalid or expired refresh token');
+    }
+  }
+
+  /** Revoke a refresh token (logout) */
+  async revokeToken(userId: string, refreshToken: string, tenantId: string) {
+    try {
+      const payload = jwt.verify(refreshToken, config.JWT_SECRET) as AuthPayload & { exp: number };
+      
+      // Create blacklist entry with expiration matching the token's expiration
+      const expiresAt = new Date(payload.exp * 1000);
+      
+      await prisma.tokenBlacklist.create({
+        data: {
+          userId,
+          tenantId,
+          tokenJti: refreshToken,
+          reason: 'logout',
+          expiresAt,
+        },
+      });
+    } catch (error) {
+      // Even if token verification fails, we still want to log it as an attempt
+      LoggerService.logError('Error revoking token', error);
     }
   }
 

@@ -1,6 +1,7 @@
 import { KMSClient, EncryptCommand, DecryptCommand } from '@aws-sdk/client-kms';
 import crypto from 'crypto';
 import { config } from '../../config';
+import { LoggerService } from './logger.service';
 
 /**
  * Encryption Service
@@ -39,7 +40,7 @@ export class EncryptionService {
           iv: 'kms', // KMS doesn't use IV
         };
       } catch (error) {
-        console.error('KMS encryption failed, falling back to local encryption:', error);
+        LoggerService.logError('KMS encryption failed, falling back to local encryption', error instanceof Error ? error : undefined);
         return this.encryptLocal(plaintext);
       }
     }

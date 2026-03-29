@@ -1,6 +1,7 @@
 import { ITriggerExecutor, TriggerExecutionContext, TimeSinceTriggerConfig } from '../types';
 import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow for leads where X days have passed since a specific event.
@@ -12,7 +13,7 @@ export class TimeSinceEventTriggerExecutor implements ITriggerExecutor {
     const { days, eventType } = config as TimeSinceTriggerConfig;
 
     if (!days || !eventType) {
-      console.warn('TimeSinceEventTrigger: missing days or eventType');
+      LoggerService.logWarn('TimeSinceEventTrigger: missing days or eventType');
       return;
     }
 
@@ -62,7 +63,7 @@ export class TimeSinceEventTriggerExecutor implements ITriggerExecutor {
         break;
     }
 
-    console.log('TimeSinceEventTrigger: found leads', {
+    LoggerService.logInfo('TimeSinceEventTrigger: found leads', {
       count: leads.length,
       days,
       eventType,
@@ -77,7 +78,7 @@ export class TimeSinceEventTriggerExecutor implements ITriggerExecutor {
           days,
         });
       } catch (error) {
-        console.error('TimeSinceEventTrigger: failed for lead', {
+        LoggerService.logError('TimeSinceEventTrigger: failed for lead', undefined, {
           leadId: lead.id,
           error: error instanceof Error ? error.message : 'Unknown error',
         });

@@ -3,6 +3,7 @@ import { WorkflowService } from './service';
 import { TriggerService } from './trigger.service';
 import { TemplateService } from './template.service';
 import { getTriggerExecutor } from './triggers';
+import { LoggerService } from '../../shared/services/logger.service';
 import { requireAuth } from '../../shared/middleware/auth.middleware';
 
 const router = Router();
@@ -10,7 +11,209 @@ const router = Router();
 function getTenantId(req: Request) {
   return (req as any).auth?.tenantId;
 }
-
+/**
+ * @swagger
+ * /workflows/templates:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: List workflow templates
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Template list
+ *   post:
+ *     tags: [Workflows]
+ *     summary: Create a workflow template
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, triggerType]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               triggerType:
+ *                 type: string
+ *               triggerConfig:
+ *                 type: object
+ *               actions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       201:
+ *         description: Template created
+ * /workflows/templates/{id}:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: Get workflow template by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template details
+ *   put:
+ *     tags: [Workflows]
+ *     summary: Update workflow template
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template updated
+ *   delete:
+ *     tags: [Workflows]
+ *     summary: Delete workflow template
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template deleted
+ * /workflows/templates/{id}/activate:
+ *   post:
+ *     tags: [Workflows]
+ *     summary: Activate a workflow template
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template activated
+ * /workflows/templates/{id}/deactivate:
+ *   post:
+ *     tags: [Workflows]
+ *     summary: Deactivate a workflow template
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Template deactivated
+ * /workflows/executions:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: List workflow executions
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: templateId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Execution list
+ * /workflows/executions/{id}:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: Get workflow execution detail
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Execution details with action logs
+ * /workflows/executions/{id}/retry:
+ *   post:
+ *     tags: [Workflows]
+ *     summary: Retry a failed execution
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Execution retried
+ * /workflows/executions/{id}/cancel:
+ *   post:
+ *     tags: [Workflows]
+ *     summary: Cancel a running execution
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Execution cancelled
+ * /workflows/stats:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: Workflow usage statistics
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Workflow statistics
+ * /workflows/trigger-types:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: List available trigger types
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Trigger type definitions
+ * /workflows/action-types:
+ *   get:
+ *     tags: [Workflows]
+ *     summary: List available action types
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Action type definitions
+ */
 // ─── Workflow Templates ──────────────────────────────────────────────────────
 
 /**
@@ -609,7 +812,7 @@ router.post('/webhook/:triggerId', async (req: Request, res: Response, next: Nex
 
     res.status(200).json({ message: 'Webhook processed successfully' });
   } catch (error) {
-    console.error('Webhook processing failed', {
+    LoggerService.logError('Webhook processing failed', undefined, {
       triggerId: req.params.triggerId,
       error: error instanceof Error ? error.message : 'Unknown error',
     });

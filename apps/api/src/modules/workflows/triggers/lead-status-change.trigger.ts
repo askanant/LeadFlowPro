@@ -1,6 +1,7 @@
 import { ITriggerExecutor, TriggerExecutionContext } from '../types';
 import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow when a lead's status changes.
@@ -12,7 +13,7 @@ export class LeadStatusChangeTriggerExecutor implements ITriggerExecutor {
     const { leadId, oldStatus, newStatus } = metadata || {};
 
     if (!leadId) {
-      console.warn('LeadStatusChangeTrigger: no leadId in metadata');
+      LoggerService.logWarn('LeadStatusChangeTrigger: no leadId in metadata');
       return;
     }
 
@@ -29,6 +30,6 @@ export class LeadStatusChangeTriggerExecutor implements ITriggerExecutor {
       newStatus,
     });
 
-    console.log('LeadStatusChangeTrigger: executed', { workflowId, leadId, oldStatus, newStatus });
+    LoggerService.logInfo('LeadStatusChangeTrigger: executed', { workflowId, leadId, oldStatus, newStatus });
   }
 }

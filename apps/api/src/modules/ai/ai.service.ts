@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { prisma } from '../../shared/database/prisma';
 import { config } from '../../config';
 import { NotFoundError } from '../../shared/utils/errors';
+import { LoggerService } from '../../shared/services/logger.service';
 
 // ─── OpenAI client (lazy-init so missing key doesn't crash startup) ────────────
 let _openai: OpenAI | null = null;
@@ -344,7 +345,7 @@ Return:
       return { ...result, score };
     } catch (err) {
       // AI scoring failure is non-fatal — return the rule-based score unchanged
-      console.error('[AI] Lead scoring failed:', err);
+      LoggerService.logError('[AI] Lead scoring failed', err instanceof Error ? err : undefined);
       return { score: 0, signals: ['AI scoring unavailable'], flag: false };
     }
   }

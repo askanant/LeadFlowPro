@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { config } from '../../config';
 import { prisma } from '../../shared/database/prisma';
+import { LoggerService } from '../../shared/services/logger.service';
 
 export class StripeService {
   private stripe: Stripe | null = null;
@@ -112,7 +113,7 @@ export class StripeService {
         return this.handlePaymentFailed(event.data.object as Stripe.Invoice);
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        LoggerService.logInfo(`Unhandled event type: ${event.type}`);
     }
   }
 

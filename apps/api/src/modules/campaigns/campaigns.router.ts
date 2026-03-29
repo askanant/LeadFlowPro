@@ -30,7 +30,25 @@ const campaignBodySchema = z.object({
     .transform((v) => (v ? new Date(v) : undefined)),
 });
 
-// GET /api/v1/campaigns
+/**
+ * @swagger
+ * /campaigns:
+ *   get:
+ *     tags: [Campaigns]
+ *     summary: List all campaigns
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: platform
+ *         schema: { type: string }
+ *       - in: query
+ *         name: status
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Campaign list
+ */
 campaignsRouter.get('/', async (req, res) => {
   const { platform, status } = req.query as { platform?: string; status?: string };
   const campaigns = await campaignsService.list(req.auth.tenantId, req.auth.role, { platform, status });

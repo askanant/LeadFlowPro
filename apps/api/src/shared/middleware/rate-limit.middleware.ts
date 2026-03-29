@@ -1,5 +1,32 @@
 import rateLimit from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import Redis from 'ioredis';
 import { Request, Response } from 'express';
+import { config } from '../../config';
+
+// Create Redis client for rate limiting — falls back to in-memory if Redis is unavailable
+let redisClient: Redis | null = null;
+try {
+  redisClient = new Redis(config.REDIS_URL, {
+    maxRetriesPerRequest: 1,
+    lazyConnect: true,
+    enableOfflineQueue: false,
+  });
+  redisClient.connect().catch(() => {
+    redisClient = null;
+  });
+} catch {
+  redisClient = null;
+}
+
+function getStore(prefix: string) {
+  if (!redisClient) return undefined; // falls back to default MemoryStore
+  return new RedisStore({
+    // @ts-expect-error - ioredis sendCommand is compatible
+    sendCommand: (...args: string[]) => redisClient!.call(...args),
+    prefix: `rl:${prefix}:`,
+  });
+}
 
 /** Extract IP from request and pass to ipKeyGenerator */
 function getIp(req: Request): string {
@@ -21,6 +48,7 @@ export const globalLimiter = rateLimit({
     // Skip rate limiting for health checks and webhooks
     return req.path === '/health' || req.path?.startsWith('/webhooks');
   },
+  store: getStore('global'),
 });
 
 /**
@@ -38,6 +66,7 @@ export const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: getStore('auth'),
 });
 
 /**
@@ -51,6 +80,7 @@ export const registerLimiter = rateLimit({
   keyGenerator: (req: Request) => getIp(req),
   standardHeaders: true,
   legacyHeaders: false,
+  store: getStore('register'),
 });
 
 /**
@@ -74,6 +104,7 @@ export const apiLimiter = rateLimit({
     // Skip GET requests (less restrictive)
     return req.method === 'GET';
   },
+  store: getStore('api'),
 });
 
 /**
@@ -91,6 +122,7 @@ export const webhookLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: getStore('webhook'),
 });
 
 /**
@@ -107,4 +139,5 @@ export const sensitiveLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: getStore('sensitive'),
 });

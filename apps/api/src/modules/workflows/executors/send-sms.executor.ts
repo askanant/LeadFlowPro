@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Send SMS via Twilio REST API (no SDK needed — uses native fetch)
@@ -73,13 +74,13 @@ export class SendSmsExecutor implements IActionExecutor {
         if (result) {
           deliveryStatus = 'sent';
           twilioSid = result.sid;
-          console.log('SendSmsExecutor: SMS sent via Twilio', {
+          LoggerService.logInfo('SendSmsExecutor: SMS sent via Twilio', {
             to: toPhone,
             sid: twilioSid,
           });
         }
       } catch (twilioError) {
-        console.warn('SendSmsExecutor: Twilio delivery failed, falling back to notification record', {
+        LoggerService.logWarn('SendSmsExecutor: Twilio delivery failed, falling back to notification record', {
           error: twilioError instanceof Error ? twilioError.message : 'Unknown',
         });
       }
@@ -113,7 +114,7 @@ export class SendSmsExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('SendSmsExecutor failed', { error: errorMsg });
+      LoggerService.logError('SendSmsExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { aiService } from './ai.service';
 import { advancedAIService } from './advanced-ai.service';
 import { enrichmentService } from './enrichment.service';
+import { LoggerService } from '../../shared/services/logger.service';
 import { requireAuth } from '../../shared/middleware/auth.middleware';
 import { sendSuccess } from '../../shared/utils/response';
 import { prisma } from '../../shared/database/prisma';
@@ -10,6 +11,104 @@ import { prisma } from '../../shared/database/prisma';
 export const aiRouter = Router();
 
 aiRouter.use(requireAuth);
+
+/**
+ * @swagger
+ * /ai/suggestions:
+ *   get:
+ *     tags: [AI]
+ *     summary: List AI suggestions
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [targeting, optimization]
+ *       - in: query
+ *         name: campaignId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: applied
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: AI suggestions list
+ * /ai/suggestions/{id}/apply:
+ *   patch:
+ *     tags: [AI]
+ *     summary: Apply an AI suggestion
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Suggestion applied
+ * /ai/leads/{id}/scoring-breakdown:
+ *   get:
+ *     tags: [AI]
+ *     summary: Detailed lead scoring breakdown
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Detailed scoring data
+ * /ai/leads/{id}/conversion-prediction:
+ *   get:
+ *     tags: [AI]
+ *     summary: Predict lead conversion probability
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Conversion prediction
+ * /ai/bulk-score:
+ *   post:
+ *     tags: [AI]
+ *     summary: Batch score leads
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               campaignId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Bulk scoring results
+ * /ai/reports/lead-scoring:
+ *   get:
+ *     tags: [AI]
+ *     summary: Lead scoring statistics report
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Aggregated scoring stats
+ */
 
 // GET /api/v1/ai/suggestions
 // Query: ?type=targeting|optimization&campaignId=&applied=true|false
@@ -127,7 +226,7 @@ aiRouter.post('/bulk-score', async (req, res) => {
             await aiService.scoreLeadDetailed(lead.id, req.auth.tenantId);
             completed++;
           } catch (err) {
-            console.error(`Error scoring lead ${lead.id}:`, err);
+            LoggerService.logError(`Error scoring lead ${lead.id}`, err instanceof Error ? err : undefined);
             errors++;
           }
         })

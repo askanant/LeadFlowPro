@@ -10,15 +10,39 @@ export const billingRouter = Router();
 
 billingRouter.use(requireAuth);
 
-// GET /api/v1/billing/plans
-// Get all available plans
+/**
+ * @swagger
+ * /billing/plans:
+ *   get:
+ *     tags: [Billing]
+ *     summary: Get available subscription plans
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of plans with pricing
+ */
 billingRouter.get('/plans', async (req, res) => {
   const plans = billingService.getPlans();
   sendSuccess(res, plans);
 });
 
-// GET /api/v1/billing/subscription
-// Get current subscription
+/**
+ * @swagger
+ * /billing/subscription:
+ *   get:
+ *     tags: [Billing]
+ *     summary: Get current subscription details
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current subscription info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Subscription'
+ */
 billingRouter.get('/subscription', async (req, res) => {
   const tenantId =
     req.auth.role === 'super_admin' && req.query['tenantId']

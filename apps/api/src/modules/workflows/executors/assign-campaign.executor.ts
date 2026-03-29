@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 export class AssignCampaignExecutor implements IActionExecutor {
   async execute(config: Record<string, any>, context: ActionExecutionContext): Promise<StepExecutionResult> {
@@ -38,7 +39,7 @@ export class AssignCampaignExecutor implements IActionExecutor {
         },
       });
 
-      console.log('AssignCampaignExecutor: assigned lead to campaign', {
+      LoggerService.logInfo('AssignCampaignExecutor: assigned lead to campaign', {
         leadId,
         campaignId,
         campaignName: campaign.name,
@@ -50,7 +51,7 @@ export class AssignCampaignExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('AssignCampaignExecutor failed', { error: errorMsg });
+      LoggerService.logError('AssignCampaignExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

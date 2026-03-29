@@ -6,6 +6,62 @@ export const activitiesRouter = Router();
 
 activitiesRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /activities/lead/{leadId}:
+ *   get:
+ *     tags: [Activities]
+ *     summary: Activity timeline for a lead
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: leadId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Activity timeline entries
+ * /activities:
+ *   post:
+ *     tags: [Activities]
+ *     summary: Log a new activity
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [type, leadId]
+ *             properties:
+ *               type:
+ *                 type: string
+ *               leadId:
+ *                 type: string
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Activity logged
+ * /activities/recent:
+ *   get:
+ *     tags: [Activities]
+ *     summary: Get recent activities across all leads
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Recent activity list
+ */
+
 // GET /api/v1/activities/lead/:leadId — activity timeline for a lead
 activitiesRouter.get('/lead/:leadId', async (req: Request, res: Response) => {
   const { tenantId } = req.auth;

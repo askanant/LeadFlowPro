@@ -6,6 +6,64 @@ import { sendSuccess } from '../../shared/utils/response';
 export const growthRouter = Router();
 growthRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /growth/campaign-optimizer:
+ *   get:
+ *     tags: [Growth]
+ *     summary: Campaign conversion analytics
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Campaign optimization data
+ * /growth/campaign-optimizer/recommendations:
+ *   get:
+ *     tags: [Growth]
+ *     summary: Campaign optimization recommendations
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Optimization recommendations
+ * /growth/spend-optimizer:
+ *   get:
+ *     tags: [Growth]
+ *     summary: Spend analysis data
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Spend analysis
+ * /growth/spend-optimizer/recommendations:
+ *   get:
+ *     tags: [Growth]
+ *     summary: Budget optimization recommendations
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Budget recommendations
+ * /growth/lead-flow:
+ *   get:
+ *     tags: [Growth]
+ *     summary: Lead flow analytics
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lead flow data
+ * /growth/lead-flow/recommendations:
+ *   get:
+ *     tags: [Growth]
+ *     summary: Growth recommendations
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Growth recommendations
+ */
+
 // ─── Campaign Optimizer ────────────────────────────────────────────────
 
 growthRouter.get('/campaign-optimizer', async (req, res) => {

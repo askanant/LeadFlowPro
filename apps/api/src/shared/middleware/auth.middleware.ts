@@ -19,12 +19,24 @@ declare global {
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  // Support both httpOnly cookie and Authorization header (for backward compatibility + WebSocket)
+  let token: string | undefined;
+
+  // Prefer httpOnly cookie
+  if (req.cookies?.accessToken) {
+    token = req.cookies.accessToken;
+  } else {
+    // Fallback to Authorization header (WebSocket handshake, legacy clients)
+    const header = req.headers.authorization;
+    if (header?.startsWith('Bearer ')) {
+      token = header.slice(7);
+    }
+  }
+
+  if (!token) {
     throw new UnauthorizedError('No token provided');
   }
 
-  const token = header.slice(7);
   try {
     const payload = jwt.verify(token, config.JWT_SECRET) as AuthPayload;
     req.auth = payload;

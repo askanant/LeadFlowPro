@@ -1,5 +1,6 @@
 import { ITriggerExecutor, TriggerExecutionContext } from '../types';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow when a lead has engagement activity.
@@ -11,7 +12,7 @@ export class LeadEngagementTriggerExecutor implements ITriggerExecutor {
     const { leadId, engagementType } = metadata || {};
 
     if (!leadId) {
-      console.warn('LeadEngagementTrigger: no leadId in metadata');
+      LoggerService.logWarn('LeadEngagementTrigger: no leadId in metadata');
       return;
     }
 
@@ -27,6 +28,6 @@ export class LeadEngagementTriggerExecutor implements ITriggerExecutor {
       engagementType,
     });
 
-    console.log('LeadEngagementTrigger: executed', { workflowId, leadId, engagementType });
+    LoggerService.logInfo('LeadEngagementTrigger: executed', { workflowId, leadId, engagementType });
   }
 }

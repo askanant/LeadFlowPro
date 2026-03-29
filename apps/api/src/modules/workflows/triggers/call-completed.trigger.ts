@@ -1,6 +1,7 @@
 import { ITriggerExecutor, TriggerExecutionContext } from '../types';
 import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow when a call is completed.
@@ -12,7 +13,7 @@ export class CallCompletedTriggerExecutor implements ITriggerExecutor {
     const { leadId, callLogId, durationSeconds, status } = metadata || {};
 
     if (!leadId) {
-      console.warn('CallCompletedTrigger: no leadId in metadata');
+      LoggerService.logWarn('CallCompletedTrigger: no leadId in metadata');
       return;
     }
 
@@ -28,6 +29,6 @@ export class CallCompletedTriggerExecutor implements ITriggerExecutor {
       durationSeconds,
     });
 
-    console.log('CallCompletedTrigger: executed', { workflowId, leadId, callLogId });
+    LoggerService.logInfo('CallCompletedTrigger: executed', { workflowId, leadId, callLogId });
   }
 }

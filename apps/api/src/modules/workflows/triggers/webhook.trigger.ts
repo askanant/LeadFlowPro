@@ -2,6 +2,7 @@ import { ITriggerExecutor, TriggerExecutionContext, WebhookTriggerConfig } from 
 import { prisma } from '../../../shared/database/prisma';
 import { WorkflowEngine } from '../engine';
 import crypto from 'crypto';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Handles webhook-based workflow triggers with signature validation
@@ -28,7 +29,7 @@ export class WebhookTriggerExecutor implements ITriggerExecutor {
     // Check if event type is allowed
     if (config.events && config.events.length > 0 && eventType) {
       if (!config.events.includes(eventType)) {
-        console.log('Webhook event type not allowed', { eventType, allowedEvents: config.events });
+        LoggerService.logInfo('Webhook event type not allowed', { eventType, allowedEvents: config.events });
         return; // Silently ignore unallowed events
       }
     }
@@ -44,14 +45,14 @@ export class WebhookTriggerExecutor implements ITriggerExecutor {
     }
 
     if (workflow.status !== 'active') {
-      console.log('Workflow is not active, skipping webhook execution', { workflowId });
+      LoggerService.logInfo('Workflow is not active, skipping webhook execution', { workflowId });
       return;
     }
 
     // Extract lead ID from webhook payload
     const leadId = this.extractLeadId(payload);
     if (!leadId) {
-      console.log('No lead ID found in webhook payload, skipping execution');
+      LoggerService.logInfo('No lead ID found in webhook payload, skipping execution');
       return;
     }
 
@@ -64,7 +65,7 @@ export class WebhookTriggerExecutor implements ITriggerExecutor {
     });
 
     if (!lead) {
-      console.log('Lead not found or does not belong to tenant', { leadId, tenantId });
+      LoggerService.logInfo('Lead not found or does not belong to tenant', { leadId, tenantId });
       return;
     }
 
@@ -82,7 +83,7 @@ export class WebhookTriggerExecutor implements ITriggerExecutor {
         }
       );
 
-      console.log('Webhook workflow execution completed', {
+      LoggerService.logInfo('Webhook workflow execution completed', {
         workflowId,
         triggerId,
         leadId,
@@ -90,7 +91,7 @@ export class WebhookTriggerExecutor implements ITriggerExecutor {
         eventType,
       });
     } catch (error) {
-      console.error('Failed to execute workflow for webhook', {
+      LoggerService.logError('Failed to execute workflow for webhook', undefined, {
         workflowId,
         triggerId,
         leadId,

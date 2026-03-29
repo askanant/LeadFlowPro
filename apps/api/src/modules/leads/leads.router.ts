@@ -8,7 +8,37 @@ export const leadsRouter = Router();
 
 leadsRouter.use(requireAuth);
 
-// GET /api/v1/leads
+/**
+ * @swagger
+ * /leads:
+ *   get:
+ *     tags: [Leads]
+ *     summary: List leads with filters and pagination
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [new, contacted, qualified, converted, lost, duplicate] }
+ *       - in: query
+ *         name: campaignId
+ *         schema: { type: string }
+ *       - in: query
+ *         name: platform
+ *         schema: { type: string }
+ *       - in: query
+ *         name: quality
+ *         schema: { type: string, enum: [excellent, good, fair, poor] }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200:
+ *         description: Paginated lead list
+ */
 leadsRouter.get('/', async (req, res) => {
   const { status, campaignId, platform, quality, from, to, page, limit } = req.query as Record<
     string,
@@ -27,7 +57,25 @@ leadsRouter.get('/', async (req, res) => {
   sendSuccess(res, result.leads, result.meta);
 });
 
-// GET /api/v1/leads/:id
+/**
+ * @swagger
+ * /leads/{id}:
+ *   get:
+ *     tags: [Leads]
+ *     summary: Get a single lead by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Lead details
+ *       404:
+ *         description: Lead not found
+ */
 leadsRouter.get('/:id', async (req, res) => {
   const lead = await leadsService.getById(req.params['id'], req.auth.tenantId, req.auth.role);
   sendSuccess(res, lead);

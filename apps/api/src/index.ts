@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
 import { config } from './config';
 import { httpsEnforcement } from './shared/middleware/https.middleware';
 import { requestIdMiddleware } from './shared/middleware/request-id.middleware';
@@ -10,6 +11,7 @@ import { globalLimiter, authLimiter, apiLimiter, registerLimiter } from './share
 import { requestTimeout } from './shared/middleware/timeout.middleware';
 import { timingMiddleware } from './shared/middleware/timing.middleware';
 import { errorMiddleware } from './shared/middleware/error.middleware';
+import { csrfProtection } from './shared/middleware/csrf.middleware';
 import { authRouter } from './modules/auth/auth.router';
 import { companiesRouter } from './modules/companies/companies.router';
 import { campaignsRouter } from './modules/campaigns/campaigns.router';
@@ -33,6 +35,9 @@ import { growthRouter } from './modules/growth/growth.router';
 import { scheduledReportService } from './modules/reports/scheduled-report.service';
 import { initializeTriggers, shutdownTriggers } from './modules/workflows/triggers';
 import { initializeWebSocket, getIO } from './shared/websocket/socket';
+import { LoggerService } from './shared/services/logger.service';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './shared/swagger';
 
 const app = express();
 
@@ -62,7 +67,13 @@ app.use(helmet({
   xssFilter: true,
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
 }));
-app.use(cors({ origin: config.NODE_ENV === 'development' ? '*' : process.env['FRONTEND_URL'] }));
+app.use(cors({
+  origin: config.NODE_ENV === 'development'
+    ? ['http://localhost:5173', 'http://localhost:3000']
+    : process.env['FRONTEND_URL'],
+  credentials: true, // Required for httpOnly cookie transport
+}));
+app.use(cookieParser());
 app.use(morgan(config.NODE_ENV === 'development' ? 'dev' : 'combined'));
 
 // ─── Request Timeout ──────────────────────────────────────────────────────────
@@ -83,9 +94,22 @@ app.use(
 );
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
+// ─── CSRF Protection ──────────────────────────────────────────────────────────
+app.use(csrfProtection);
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', version: '1.0.0', env: config.NODE_ENV });
+});
+
+// ─── API Documentation ────────────────────────────────────────────────────────
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'LeadFlow Pro API Docs',
+}));
+app.get('/api/docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
 });
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
@@ -124,21 +148,21 @@ app.use(errorMiddleware);
 // Development: Create super admin if configured
 if (config.NODE_ENV === 'development') {
   import('../scripts/create-dev-admin').then(({ createDevAdmin }) => {
-    createDevAdmin().catch(err => console.error('Dev admin setup error:', err));
-  }).catch(err => console.error('Dev admin module load error:', err));
+    createDevAdmin().catch(err => LoggerService.logError('Dev admin setup error', err));
+  }).catch(err => LoggerService.logError('Dev admin module load error', err));
 }
 
 const server = app.listen(config.PORT, async () => {
   // Initialize WebSocket server
   initializeWebSocket(server);
 
-  console.log(`🚀 LeadFlow Pro API running on port ${config.PORT} [${config.NODE_ENV}]`);
+  LoggerService.logInfo(`LeadFlow Pro API running on port ${config.PORT} [${config.NODE_ENV}]`);
 
   // Initialize workflow triggers
   try {
     await initializeTriggers();
   } catch (error) {
-    console.error('Failed to initialize workflow triggers:', error);
+    LoggerService.logError('Failed to initialize workflow triggers', error);
   }
 
   // Start scheduled report cron
@@ -146,22 +170,19 @@ const server = app.listen(config.PORT, async () => {
 
   // ⚠️  Warn if Stripe is not configured in production
   if (config.NODE_ENV === 'production' && !process.env['STRIPE_SECRET_KEY']) {
-    console.warn(
-      '⚠️  WARNING: Stripe is not configured. Billing features will not work. ' +
-      'Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET environment variables.'
-    );
+    LoggerService.logWarn('Stripe is not configured. Billing features will not work. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET environment variables.');
   }
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully...');
+  LoggerService.logInfo('SIGTERM received, shutting down gracefully...');
   await shutdownTriggers();
   scheduledReportService.stopReportCron();
   const socketIO = getIO();
   if (socketIO) socketIO.close();
   server.close(() => {
-    console.log('Server closed');
+    LoggerService.logInfo('Server closed');
     process.exit(0);
   });
 });

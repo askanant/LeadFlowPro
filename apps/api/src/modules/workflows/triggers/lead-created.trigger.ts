@@ -1,5 +1,6 @@
 import { ITriggerExecutor, TriggerExecutionContext } from '../types';
 import { WorkflowEngine } from '../engine';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 /**
  * Triggers workflow when a new lead is created.
@@ -11,7 +12,7 @@ export class LeadCreatedTriggerExecutor implements ITriggerExecutor {
     const { leadId } = metadata || {};
 
     if (!leadId) {
-      console.warn('LeadCreatedTrigger: no leadId in metadata');
+      LoggerService.logWarn('LeadCreatedTrigger: no leadId in metadata');
       return;
     }
 
@@ -24,6 +25,6 @@ export class LeadCreatedTriggerExecutor implements ITriggerExecutor {
       triggerId,
     });
 
-    console.log('LeadCreatedTrigger: executed', { workflowId, leadId });
+    LoggerService.logInfo('LeadCreatedTrigger: executed', { workflowId, leadId });
   }
 }

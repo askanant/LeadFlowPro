@@ -1,6 +1,7 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
 import nodemailer from 'nodemailer';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 // SMTP transport is created lazily when env vars are available
 function createTransport() {
@@ -68,12 +69,12 @@ export class SendEmailExecutor implements IActionExecutor {
           });
           deliveryStatus = 'sent';
           messageId = info.messageId;
-          console.log('SendEmailExecutor: email sent via SMTP', {
+          LoggerService.logInfo('SendEmailExecutor: email sent via SMTP', {
             to: toEmail,
             messageId,
           });
         } catch (smtpError) {
-          console.warn('SendEmailExecutor: SMTP delivery failed, falling back to notification record', {
+          LoggerService.logWarn('SendEmailExecutor: SMTP delivery failed, falling back to notification record', {
             error: smtpError instanceof Error ? smtpError.message : 'Unknown',
           });
         }
@@ -111,7 +112,7 @@ export class SendEmailExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('SendEmailExecutor failed', { error: errorMsg });
+      LoggerService.logError('SendEmailExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

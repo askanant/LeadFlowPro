@@ -7,6 +7,68 @@ export const analyticsRouter = Router();
 
 analyticsRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /analytics/overview:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Dashboard overview
+ *     description: Returns aggregated dashboard data including lead counts, call stats, campaign metrics, and delivery rates
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard overview data
+ * /analytics/leads:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Lead trends
+ *     description: Returns leads grouped by date for trend visualization
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *           maximum: 90
+ *     responses:
+ *       200:
+ *         description: Lead trend data
+ * /analytics/calls:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Call statistics
+ *     description: Returns call stats by status and average duration
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *     responses:
+ *       200:
+ *         description: Call statistics
+ * /analytics/campaigns/{id}:
+ *   get:
+ *     tags: [Analytics]
+ *     summary: Campaign metrics
+ *     description: Returns metrics and aggregated stats for a specific campaign
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Campaign analytics data
+ */
 // GET /api/v1/analytics/overview
 analyticsRouter.get('/overview', async (req, res) => {
   const { tenantId, role } = req.auth;
@@ -55,29 +117,35 @@ analyticsRouter.get('/leads', async (req, res) => {
   const days = Math.min(parseInt((req.query['days'] as string) ?? '30'), 90);
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-  // Build query based on role
-  let query = `
-    SELECT
-      DATE(received_at)::text AS date,
-      COUNT(*)::int AS count,
-      platform,
-      status
-    FROM leads
-    WHERE received_at >= $1
-  `;
+  // Build WHERE clause based on role
+  const whereClause = role === 'super_admin' ? { receivedAt: { gte: startDate } } : { tenantId, receivedAt: { gte: startDate } };
 
-  const params: any[] = [startDate];
+  // Use Prisma groupBy for safe parameterized queries
+  const leadsByDate = await prisma.lead.groupBy({
+    by: ['receivedAt', 'platform', 'status'],
+    where: whereClause,
+    _count: { _all: true },
+    orderBy: { receivedAt: 'asc' },
+  });
 
-  if (role !== 'super_admin') {
-    query += ` AND tenant_id = $2::uuid`;
-    params.push(tenantId);
-  }
+  // Transform results to match expected format (grouped by date, not included time)
+  const groupedByDate: { [date: string]: { count: number; platform: string | null; status: string }[] } = {};
+  
+  leadsByDate.forEach((item) => {
+    const date = item.receivedAt ? new Date(item.receivedAt).toISOString().split('T')[0] : 'unknown';
+    if (!groupedByDate[date]) groupedByDate[date] = [];
+    groupedByDate[date].push({
+      count: item._count._all,
+      platform: item.platform,
+      status: item.status,
+    });
+  });
 
-  query += ` GROUP BY DATE(received_at), platform, status ORDER BY date ASC`;
-
-  const leads = await prisma.$queryRawUnsafe<
-    { date: string; count: number; platform: string | null; status: string }[]
-  >(query, ...params);
+  // Flatten back to array format
+  const leads = Object.entries(groupedByDate).map(([date, items]) => ({
+    date,
+    ...items.reduce((acc, item) => ({ ...acc, ...item }), {}),
+  }));
 
   sendSuccess(res, leads);
 });

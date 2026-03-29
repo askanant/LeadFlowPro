@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../shared/database/prisma';
 import { getTenantFilter } from '../../shared/utils/tenant-filter';
+import crypto from 'crypto';
 
 export const agentsService = {
   async list(tenantId: string, role: string | undefined) {
@@ -52,8 +53,9 @@ export const agentsService = {
     const existing = await prisma.user.findFirst({ where: { email: data.email } });
     if (existing) throw new Error('Agent with this email already exists');
 
-    // Generate temporary password (12 char random)
-    const tempPassword = Math.random().toString(36).slice(2, 14);
+    // SECURITY FIX: Generate cryptographically secure random password (16 bytes = 32 hex characters)
+    // Replaces insecure Math.random() approach
+    const tempPassword = crypto.randomBytes(16).toString('hex');
     const passwordHash = await bcrypt.hash(tempPassword, 12);
 
     const user = await prisma.user.create({

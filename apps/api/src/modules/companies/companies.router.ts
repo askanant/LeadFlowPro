@@ -9,6 +9,99 @@ export const companiesRouter = Router();
 
 companiesRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /companies:
+ *   get:
+ *     tags: [Companies]
+ *     summary: List all companies (super_admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of companies
+ *   post:
+ *     tags: [Companies]
+ *     summary: Create a new company (super_admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               industry:
+ *                 type: string
+ *               targetGeo:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Company created
+ * /companies/{tenantId}:
+ *   get:
+ *     tags: [Companies]
+ *     summary: Get company by tenant ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tenantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Company details
+ *   patch:
+ *     tags: [Companies]
+ *     summary: Update company details
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tenantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Company updated
+ * /companies/{tenantId}/credentials:
+ *   post:
+ *     tags: [Companies]
+ *     summary: Store ad platform credentials
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tenantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Credentials stored
+ *   get:
+ *     tags: [Companies]
+ *     summary: Get stored credentials
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: tenantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Credential list
+ */
+
 const companyBodySchema = z.object({
   name: z.string().min(2).max(200),
   industry: z.string().max(100).optional(),

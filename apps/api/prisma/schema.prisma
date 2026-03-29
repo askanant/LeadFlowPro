@@ -224,12 +224,15 @@ model User {
   isActive     Boolean   @default(true) @map("is_active")
   twoFactorEnabled Boolean @default(false) @map("two_factor_enabled")
   totpSecret   String?   @map("totp_secret") @db.Text
+  failedLoginAttempts Int  @default(0) @map("failed_login_attempts")
+  lockedUntil  DateTime? @map("locked_until")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
   company   Company    @relation(fields: [tenantId], references: [tenantId])
   auditLogs AuditLog[]
+  tokenBlacklist TokenBlacklist[]
   notificationPreferences NotificationPreference[]
   notifications Notification[]
   tasksAssigned Task[]     @relation("TaskAssignee")
@@ -256,6 +259,28 @@ model AuditLog {
 
   @@index([tenantId])
   @@map("audit_logs")
+}
+
+// ─── Token Revocation (Security) ──────────────────────────────────────────────
+// Track revoked refresh tokens to prevent use of compromised tokens
+// Automatically cleaned up via scheduled jobs when tokens expire
+
+model TokenBlacklist {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  tenantId    String   @map("tenant_id")
+  tokenJti    String   @db.Text @map("token_jti")  // JWT jti (if added) or token hash
+  reason      String   @db.VarChar(100)            // 'logout', 'password_change', 'suspicious_activity', 'token_rotation'
+  expiresAt   DateTime @map("expires_at")          // When the token would expire (for cleanup)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tokenJti])
+  @@index([userId])
+  @@index([expiresAt])  // For efficient cleanup queries
+  @@index([tenantId])
+  @@map("token_blacklist")
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────

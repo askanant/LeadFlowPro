@@ -6,6 +6,78 @@ export const notificationRouter = Router();
 
 notificationRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /notifications/preferences:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: Get notification preferences
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User notification preferences
+ *   put:
+ *     tags: [Notifications]
+ *     summary: Update notification preferences
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               emailEnabled:
+ *                 type: boolean
+ *               pushEnabled:
+ *                 type: boolean
+ *               smsEnabled:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Preferences updated
+ * /notifications:
+ *   get:
+ *     tags: [Notifications]
+ *     summary: List notifications
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: unread
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: Notification list
+ * /notifications/{id}/read:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Mark notification as read
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Marked as read
+ * /notifications/read-all:
+ *   patch:
+ *     tags: [Notifications]
+ *     summary: Mark all notifications as read
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All marked as read
+ */
+
 notificationRouter.get('/preferences', async (req: Request, res: Response) => {
   try {
     const { tenantId, userId } = req.auth!;

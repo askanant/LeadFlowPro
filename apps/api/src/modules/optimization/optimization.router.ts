@@ -7,6 +7,63 @@ export const optimizationRouter = Router();
 
 optimizationRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /optimization/campaigns/{campaignId}/optimize-budget:
+ *   post:
+ *     tags: [Optimization]
+ *     summary: Get budget optimization recommendation
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: campaignId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               apply:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Budget optimization result
+ * /optimization/campaigns/{campaignId}/ab-test:
+ *   post:
+ *     tags: [Optimization]
+ *     summary: Configure A/B test for campaign
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: campaignId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: A/B test configured
+ * /optimization/campaigns/{campaignId}/performance:
+ *   get:
+ *     tags: [Optimization]
+ *     summary: Get campaign performance analytics
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: campaignId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Performance data
+ */
+
 // POST /api/v1/optimization/campaigns/:campaignId/optimize-budget
 // Get budget optimization recommendation and optionally apply it
 optimizationRouter.post('/campaigns/:campaignId/optimize-budget', async (req, res) => {

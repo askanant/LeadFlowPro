@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 export class SendWebhookExecutor implements IActionExecutor {
   async execute(config: Record<string, any>, context: ActionExecutionContext): Promise<StepExecutionResult> {
@@ -69,7 +70,7 @@ export class SendWebhookExecutor implements IActionExecutor {
         signal: AbortSignal.timeout(10000),
       });
 
-      console.log('SendWebhookExecutor: sent webhook', {
+      LoggerService.logInfo('SendWebhookExecutor: sent webhook', {
         url: parsedUrl.origin + parsedUrl.pathname,
         status: response.status,
       });
@@ -88,7 +89,7 @@ export class SendWebhookExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('SendWebhookExecutor failed', { error: errorMsg });
+      LoggerService.logError('SendWebhookExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

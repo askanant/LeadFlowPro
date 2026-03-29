@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 
 export class UpdateMetricsExecutor implements IActionExecutor {
@@ -30,7 +31,7 @@ export class UpdateMetricsExecutor implements IActionExecutor {
         data: { customFields: updatedCustomFields },
       });
 
-      console.log('Updated lead metrics', {
+      LoggerService.logInfo('Updated lead metrics', {
         leadId,
         metricsCount: Object.keys(customMetrics).length,
       });
@@ -41,7 +42,7 @@ export class UpdateMetricsExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('UpdateMetricsExecutor failed', { error: errorMsg });
+      LoggerService.logError('UpdateMetricsExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

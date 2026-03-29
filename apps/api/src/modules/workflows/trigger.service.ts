@@ -3,6 +3,7 @@ import { getTriggerExecutor, ScheduledTriggerExecutor } from './triggers';
 import { WorkflowTriggerType, ScheduledTriggerConfig } from './types';
 import cron from 'node-cron';
 import * as parser from 'cron-parser';
+import { LoggerService } from '../../shared/services/logger.service';
 import { WebhookTriggerExecutor } from './triggers/webhook.trigger';
 
 export class TriggerService {
@@ -94,7 +95,7 @@ export class TriggerService {
       });
     }
 
-    console.log('Created workflow trigger', { workflowId, triggerId: trigger.id });
+    LoggerService.logInfo('Created workflow trigger', { workflowId, triggerId: trigger.id });
     return trigger;
   }
 
@@ -169,14 +170,14 @@ export class TriggerService {
         }
       } catch (error) {
         // Log error but don't fail
-        console.error('Failed to activate scheduled trigger', {
+        LoggerService.logError('Failed to activate scheduled trigger', undefined, {
           triggerId,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
 
-    console.log('Updated workflow trigger', { triggerId });
+    LoggerService.logInfo('Updated workflow trigger', { triggerId });
     return updated;
   }
 
@@ -200,7 +201,7 @@ export class TriggerService {
       where: { id: triggerId },
     });
 
-    console.log('Deleted workflow trigger', { triggerId });
+    LoggerService.logInfo('Deleted workflow trigger', { triggerId });
     return deleted;
   }
 

@@ -6,6 +6,106 @@ export const tasksRouter = Router();
 
 tasksRouter.use(requireAuth);
 
+/**
+ * @swagger
+ * /tasks:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: List tasks with filters
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, in_progress, completed, cancelled]
+ *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *           enum: [low, medium, high, urgent]
+ *       - in: query
+ *         name: assignedTo
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task list
+ *   post:
+ *     tags: [Tasks]
+ *     summary: Create a task
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               dueDate:
+ *                 type: string
+ *                 format: date-time
+ *               priority:
+ *                 type: string
+ *               leadId:
+ *                 type: string
+ *               assignedTo:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Task created
+ * /tasks/{id}:
+ *   get:
+ *     tags: [Tasks]
+ *     summary: Get task by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task details
+ *   patch:
+ *     tags: [Tasks]
+ *     summary: Update a task
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task updated
+ *   delete:
+ *     tags: [Tasks]
+ *     summary: Delete a task
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task deleted
+ */
+
 // GET /api/v1/tasks — list tasks with filters
 tasksRouter.get('/', async (req: Request, res: Response) => {
   const { tenantId } = req.auth;

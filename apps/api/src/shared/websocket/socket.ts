@@ -2,7 +2,9 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { config } from '../../config';
+import { prisma } from '../database/prisma';
 import type { AuthPayload } from '../middleware/auth.middleware';
+import { LoggerService } from '../services/logger.service';
 
 let io: SocketIOServer | null = null;
 
@@ -16,7 +18,7 @@ export function initializeWebSocket(httpServer: HttpServer): SocketIOServer {
   });
 
   // JWT authentication middleware for WebSocket handshake
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     if (!token) {
       return next(new Error('Authentication required'));
@@ -24,13 +26,42 @@ export function initializeWebSocket(httpServer: HttpServer): SocketIOServer {
 
     try {
       const payload = jwt.verify(token, config.JWT_SECRET) as AuthPayload;
+      
+      // CRITICAL SECURITY FIX: Verify user exists in database and belongs to claimed tenantId
+      // This prevents attackers from forging JWT tokens with arbitrary tenantIds
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true, tenantId: true, role: true, isActive: true },
+      });
+
+      if (!user) {
+        return next(new Error('User not found'));
+      }
+
+      if (!user.isActive) {
+        return next(new Error('User account is inactive'));
+      }
+
+      // Verify the JWT tenantId matches the database tenantId
+      if (user.tenantId !== payload.tenantId) {
+        LoggerService.logWarn(`SECURITY: WebSocket authentication attempted with mismatched tenantId. userId=${payload.userId} jwtTenantId=${payload.tenantId} dbTenantId=${user.tenantId}`);
+        return next(new Error('Tenant authorization failed'));
+      }
+
       socket.data.userId = payload.userId;
-      socket.data.tenantId = payload.tenantId;
+      socket.data.tenantId = user.tenantId;  // Use database value, not JWT
       socket.data.email = payload.email;
-      socket.data.role = payload.role;
+      socket.data.role = user.role;
       next();
-    } catch {
-      next(new Error('Invalid or expired token'));
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        return next(new Error('Invalid or expired token'));
+      }
+      if (error instanceof jwt.TokenExpiredError) {
+        return next(new Error('Token expired'));
+      }
+      // Database or other errors
+      return next(new Error('Authentication failed'));
     }
   });
 
@@ -42,14 +73,14 @@ export function initializeWebSocket(httpServer: HttpServer): SocketIOServer {
     // Join user-specific room for targeted notifications
     socket.join(`user:${userId}`);
 
-    console.log(`WebSocket connected: user=${userId} tenant=${tenantId}`);
+    LoggerService.logInfo(`WebSocket connected: user=${userId} tenant=${tenantId}`);
 
     socket.on('disconnect', () => {
-      console.log(`WebSocket disconnected: user=${userId}`);
+      LoggerService.logInfo(`WebSocket disconnected: user=${userId}`);
     });
   });
 
-  console.log('🔌 WebSocket server initialized');
+  LoggerService.logInfo('WebSocket server initialized');
   return io;
 }
 

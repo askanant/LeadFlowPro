@@ -4,6 +4,48 @@ import { config } from '../../config';
 import { NotFoundError } from '../../shared/utils/errors';
 import { getAdPlatformProvider } from './providers';
 import { getTenantFilter } from '../../shared/utils/tenant-filter';
+import { EncryptionService } from '../../shared/services/encryption.service';
+import { LoggerService } from '../../shared/services/logger.service';
+
+interface DecryptedCredentials {
+  accessToken?: string;
+  refreshToken?: string;
+  appSecret?: string;
+}
+
+async function getDecryptedCredentials(creds: {
+  accessToken: string | null;
+  refreshToken: string | null;
+  appSecret: string | null;
+  encryptedCredentials: string | null;
+  credentialsIV: string | null;
+  accountId: string | null;
+  appId: string | null;
+  extraConfig: any;
+}) {
+  let decrypted: DecryptedCredentials = {};
+  if (creds.encryptedCredentials && creds.credentialsIV) {
+    decrypted = await EncryptionService.decryptObject<DecryptedCredentials>(
+      creds.encryptedCredentials,
+      creds.credentialsIV
+    );
+  } else {
+    // Legacy plaintext fallback
+    decrypted = {
+      accessToken: creds.accessToken ?? undefined,
+      refreshToken: creds.refreshToken ?? undefined,
+      appSecret: creds.appSecret ?? undefined,
+    };
+  }
+  return {
+    accessToken: decrypted.accessToken ?? undefined,
+    refreshToken: decrypted.refreshToken ?? undefined,
+    accountId: creds.accountId ?? undefined,
+    appId: creds.appId ?? undefined,
+    appSecret: decrypted.appSecret ?? undefined,
+    extraConfig: creds.extraConfig,
+  };
+}
 
 export class CampaignsService {
   async list(tenantId: string, role: string | undefined, filters?: { platform?: string; status?: string }) {
@@ -54,7 +96,7 @@ export class CampaignsService {
       action: 'update_campaign_status',
       resource: 'campaign',
       resourceId: campaign.id,
-    }).catch((err) => console.error('Audit log failed:', err));
+    }).catch((err) => LoggerService.logError('Audit log failed', err));
 
     return updated;
   }
@@ -66,7 +108,12 @@ export class CampaignsService {
     const creds = await prisma.adPlatformCredential.findFirst({
       where: { tenantId: campaign.tenantId, platform: campaign.platform, isValid: true },
     });
-    if (!creds?.accessToken || !creds.accountId) {
+    if (!creds) {
+      throw new Error(`No valid ${campaign.platform} credentials configured for this company`);
+    }
+
+    const credentials = await getDecryptedCredentials(creds);
+    if (!credentials.accessToken || !creds.accountId) {
       throw new Error(`No valid ${campaign.platform} credentials configured for this company`);
     }
 
@@ -84,14 +131,7 @@ export class CampaignsService {
         startDate: campaign.startDate || undefined,
         endDate: campaign.endDate || undefined,
       },
-      {
-        accessToken: creds.accessToken,
-        refreshToken: creds.refreshToken ?? undefined,
-        accountId: creds.accountId ?? undefined,
-        appId: creds.appId ?? undefined,
-        appSecret: creds.appSecret ?? undefined,
-        extraConfig: creds.extraConfig,
-      }
+      credentials
     );
 
     return prisma.campaign.update({
@@ -110,19 +150,17 @@ export class CampaignsService {
     const creds = await prisma.adPlatformCredential.findFirst({
       where: { tenantId: campaign.tenantId, platform: campaign.platform, isValid: true },
     });
-    if (!creds?.accessToken) {
+    if (!creds) {
+      throw new Error(`No valid ${campaign.platform} credentials configured for this company`);
+    }
+
+    const credentials = await getDecryptedCredentials(creds);
+    if (!credentials.accessToken) {
       throw new Error(`No valid ${campaign.platform} credentials configured for this company`);
     }
 
     const provider = getAdPlatformProvider(campaign.platform);
-    await provider.pause(campaign.platformCampaignId, {
-      accessToken: creds.accessToken,
-      refreshToken: creds.refreshToken ?? undefined,
-      accountId: creds.accountId ?? undefined,
-      appId: creds.appId ?? undefined,
-      appSecret: creds.appSecret ?? undefined,
-      extraConfig: creds.extraConfig,
-    });
+    await provider.pause(campaign.platformCampaignId, credentials);
 
     return prisma.campaign.update({
       where: { id },
@@ -140,19 +178,17 @@ export class CampaignsService {
     const creds = await prisma.adPlatformCredential.findFirst({
       where: { tenantId: campaign.tenantId, platform: campaign.platform, isValid: true },
     });
-    if (!creds?.accessToken) {
+    if (!creds) {
+      throw new Error(`No valid ${campaign.platform} credentials configured for this company`);
+    }
+
+    const credentials = await getDecryptedCredentials(creds);
+    if (!credentials.accessToken) {
       throw new Error(`No valid ${campaign.platform} credentials configured for this company`);
     }
 
     const provider = getAdPlatformProvider(campaign.platform);
-    await provider.resume(campaign.platformCampaignId, {
-      accessToken: creds.accessToken,
-      refreshToken: creds.refreshToken ?? undefined,
-      accountId: creds.accountId ?? undefined,
-      appId: creds.appId ?? undefined,
-      appSecret: creds.appSecret ?? undefined,
-      extraConfig: creds.extraConfig,
-    });
+    await provider.resume(campaign.platformCampaignId, credentials);
 
     return prisma.campaign.update({
       where: { id },

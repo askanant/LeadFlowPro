@@ -1,5 +1,6 @@
 import { IActionExecutor, ActionExecutionContext, StepExecutionResult } from '../types';
 import { prisma } from '../../../shared/database/prisma';
+import { LoggerService } from '../../../shared/services/logger.service';
 
 export class UpdateLeadExecutor implements IActionExecutor {
   async execute(config: Record<string, any>, context: ActionExecutionContext): Promise<StepExecutionResult> {
@@ -58,7 +59,7 @@ export class UpdateLeadExecutor implements IActionExecutor {
         },
       });
 
-      console.log('UpdateLeadExecutor: updated lead', { leadId, changes });
+      LoggerService.logInfo('UpdateLeadExecutor: updated lead', { leadId, changes });
 
       return {
         success: true,
@@ -66,7 +67,7 @@ export class UpdateLeadExecutor implements IActionExecutor {
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('UpdateLeadExecutor failed', { error: errorMsg });
+      LoggerService.logError('UpdateLeadExecutor failed', undefined, { error: errorMsg });
       return { success: false, error: errorMsg };
     }
   }

@@ -5,6 +5,7 @@ export const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000, // 30 second timeout for all requests
+  withCredentials: true, // SECURITY: Send httpOnly cookies with every request
 });
 
 let isRefreshing = false;
@@ -56,9 +57,19 @@ function isNetworkError(error: any): boolean {
 }
 
 api.interceptors.request.use((config) => {
+  // httpOnly cookies are sent automatically via withCredentials: true
+  // Keep Bearer header as fallback for backward compatibility
   const state = useAuthStore.getState();
   if (state.token) {
     config.headers.Authorization = `Bearer ${state.token}`;
+  }
+  // CSRF: read the csrf-token cookie and send as header for double-submit protection
+  const csrfToken = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('csrf-token='))
+    ?.split('=')[1];
+  if (csrfToken) {
+    config.headers['x-csrf-token'] = csrfToken;
   }
   return config;
 });
@@ -82,21 +93,16 @@ api.interceptors.response.use(
 
         try {
           // Try to refresh the token using the refresh endpoint
-          // Note: This requires storing refreshToken in auth store
+          // httpOnly cookie carries the refresh token automatically
           const state = useAuthStore.getState();
 
-          // If we don't have a refresh token, log out
-          if (!state.refreshToken) {
-            throw new Error('No refresh token available');
-          }
-
-          const refreshResponse = await axios.post('/api/v1/auth/refresh', {
-            refreshToken: state.refreshToken,
+          const refreshResponse = await axios.post('/api/v1/auth/refresh', {}, {
+            withCredentials: true, // Send httpOnly cookies
           });
 
           const { accessToken, refreshToken } = refreshResponse.data.data;
 
-          // Update the auth store with new tokens
+          // Update the auth store with new token (for WebSocket handshake compat)
           state.setAuth(accessToken, state.user!, refreshToken);
 
           // Update the original request with new token
@@ -110,8 +116,10 @@ api.interceptors.response.use(
           // Retry the original request with new token
           return api(originalRequest);
         } catch (refreshError) {
-          // Refresh failed, log out user
+          // Refresh failed, log out user and clear cookies
           useAuthStore.getState().logout();
+          // Call backend logout to clear httpOnly cookies
+          try { await axios.post('/api/v1/auth/logout', {}, { withCredentials: true }); } catch { /* ignore */ }
           window.location.href = '/login';
           isRefreshing = false;
           return Promise.reject(refreshError);

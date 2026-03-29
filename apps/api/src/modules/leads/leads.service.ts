@@ -5,6 +5,7 @@ import { config } from '../../config';
 import { leadQualityService } from './lead-quality.service';
 import { leadDeduplicationService } from './lead-deduplication.service';
 import { billingService } from '../billing/billing.service';
+import { LoggerService } from '../../shared/services/logger.service';
 import { WorkflowService } from '../workflows/service';
 import { getTenantFilter } from '../../shared/utils/tenant-filter';
 
@@ -188,7 +189,7 @@ export class LeadsService {
     if (config.OPENAI_API_KEY) {
       import('../ai/ai.service').then(({ aiService }) => {
         aiService.scoreLeadWithAI(lead.id, tenantId, data).catch((err) => {
-          console.error('[AI] Async lead scoring error:', err);
+          LoggerService.logError('[AI] Async lead scoring error', err);
         });
       });
     }
@@ -212,7 +213,7 @@ export class LeadsService {
       action: 'update_lead_status',
       resource: 'lead',
       resourceId: id,
-    }).catch(err => console.error('Audit log failed:', err));
+    }).catch(err => LoggerService.logError('Audit log failed', err));
     
     // Trigger workflows on status change
     try {
@@ -228,7 +229,7 @@ export class LeadsService {
         await WorkflowService.triggerWorkflow(wf.id, id, tenantId, role, 'lead_status_change');
       }
     } catch (error) {
-      console.error('Failed to trigger workflow on status change:', error);
+      LoggerService.logError('Failed to trigger workflow on status change', error);
       // Don't fail the request if workflow trigger fails
     }
     
@@ -360,7 +361,7 @@ export class LeadsService {
       action: 'add_lead_note',
       resource: 'lead',
       resourceId: id,
-    }).catch(err => console.error('Audit log failed:', err));
+    }).catch(err => LoggerService.logError('Audit log failed', err));
     return note;
   }
 

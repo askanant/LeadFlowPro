@@ -1,6 +1,7 @@
 import { prisma } from '../../shared/database/prisma';
 import { WorkflowEngine } from './engine';
 import { getTenantFilter } from '../../shared/utils/tenant-filter';
+import { LoggerService } from '../../shared/services/logger.service';
 
 export class WorkflowService {
   /**
@@ -29,7 +30,7 @@ export class WorkflowService {
       },
     });
 
-    console.log('Created workflow', { tenantId, workflowId: workflow.id });
+    LoggerService.logInfo('Created workflow', { tenantId, workflowId: workflow.id });
     return workflow;
   }
 
@@ -91,7 +92,7 @@ export class WorkflowService {
       },
     });
 
-    console.log('Updated workflow', { workflowId, version: workflow.version });
+    LoggerService.logInfo('Updated workflow', { workflowId, version: workflow.version });
     return workflow;
   }
 
@@ -103,7 +104,7 @@ export class WorkflowService {
       where: { id: workflowId },
     });
 
-    console.log('Deleted workflow', { workflowId });
+    LoggerService.logInfo('Deleted workflow', { workflowId });
     return workflow;
   }
 
@@ -171,7 +172,7 @@ export class WorkflowService {
       }
     }
 
-    console.log('Cloned workflow', { originalId: workflowId, cloneId: cloned.id });
+    LoggerService.logInfo('Cloned workflow', { originalId: workflowId, cloneId: cloned.id });
 
     return prisma.workflow.findUnique({
       where: { id: cloned.id },
@@ -201,7 +202,7 @@ export class WorkflowService {
       },
     });
 
-    console.log('Added workflow step', { workflowId, stepId: step.id });
+    LoggerService.logInfo('Added workflow step', { workflowId, stepId: step.id });
     return step;
   }
 
@@ -222,7 +223,7 @@ export class WorkflowService {
       data,
     });
 
-    console.log('Updated workflow step', { stepId });
+    LoggerService.logInfo('Updated workflow step', { stepId });
     return step;
   }
 
@@ -234,7 +235,7 @@ export class WorkflowService {
       where: { id: stepId },
     });
 
-    console.log('Deleted workflow step', { stepId });
+    LoggerService.logInfo('Deleted workflow step', { stepId });
     return step;
   }
 
@@ -263,7 +264,7 @@ export class WorkflowService {
       );
 
       if (!shouldTrigger) {
-        console.log('Workflow did not match conditions', { workflowId, leadId });
+        LoggerService.logInfo('Workflow did not match conditions', { workflowId, leadId });
         return { triggered: false, reason: 'Conditions not met' };
       }
 
@@ -274,10 +275,10 @@ export class WorkflowService {
         tenantId
       );
 
-      console.log('Triggered workflow', { workflowId, leadId, executionId });
+      LoggerService.logInfo('Triggered workflow', { workflowId, leadId, executionId });
       return { triggered: true, executionId };
     } catch (error) {
-      console.error('Failed to trigger workflow', { workflowId, leadId, error });
+      LoggerService.logError('Failed to trigger workflow', error instanceof Error ? error : undefined, { workflowId, leadId });
       throw error;
     }
   }
