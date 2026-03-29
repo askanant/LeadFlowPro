@@ -43,7 +43,7 @@ export class TriggerService {
     if (data.type === 'webhook') {
       if (!webhookUrl || !webhookSecret) {
         // Generate credentials if not provided
-        const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+        const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
         const credentials = this.generateWebhookCredentials('temp', baseUrl);
         webhookUrl = credentials.webhookUrl;
         webhookSecret = credentials.webhookSecret;
@@ -65,7 +65,7 @@ export class TriggerService {
 
     // Update webhook URL with actual trigger ID
     if (data.type === 'webhook' && !data.webhookUrl) {
-      const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+      const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
       const actualWebhookUrl = WebhookTriggerExecutor.generateWebhookUrl(trigger.id, baseUrl);
 
       await prisma.workflowTrigger.update({
