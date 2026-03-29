@@ -6,26 +6,37 @@ import { config } from '../../config';
 
 // Create Redis client for rate limiting — falls back to in-memory if Redis is unavailable
 let redisClient: Redis | null = null;
-try {
-  redisClient = new Redis(config.REDIS_URL, {
-    maxRetriesPerRequest: 1,
-    lazyConnect: true,
-    enableOfflineQueue: false,
-  });
-  redisClient.connect().catch(() => {
+let redisReady = false;
+
+if (config.REDIS_URL) {
+  try {
+    redisClient = new Redis(config.REDIS_URL, {
+      maxRetriesPerRequest: 1,
+      lazyConnect: true,
+      enableOfflineQueue: false,
+    });
+    redisClient.on('ready', () => { redisReady = true; });
+    redisClient.on('error', () => { redisReady = false; });
+    redisClient.connect().catch(() => {
+      redisClient = null;
+    });
+  } catch {
     redisClient = null;
-  });
-} catch {
-  redisClient = null;
+  }
 }
 
 function getStore(prefix: string) {
-  if (!redisClient) return undefined; // falls back to default MemoryStore
-  return new RedisStore({
-    // @ts-expect-error - ioredis sendCommand is compatible
-    sendCommand: (...args: string[]) => redisClient!.call(...args),
-    prefix: `rl:${prefix}:`,
-  });
+  // Only create RedisStore if client exists AND has connected successfully
+  if (!redisClient || !redisReady) return undefined; // falls back to default MemoryStore
+  try {
+    return new RedisStore({
+      // @ts-expect-error - ioredis sendCommand is compatible
+      sendCommand: (...args: string[]) => redisClient!.call(...args),
+      prefix: `rl:${prefix}:`,
+    });
+  } catch {
+    return undefined;
+  }
 }
 
 /** Extract IP from request and pass to ipKeyGenerator */
