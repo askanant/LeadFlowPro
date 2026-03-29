@@ -1,20 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "apps/web/package.json",
-      "use": "@vercel/next-build",
-      "config": {
-        "zeroConfig": true
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
-  "buildCommand": "npm run build --workspace @leadflow/web",
-  "outputDirectory": "apps/web/dist"
+  "buildCommand": "npm install --legacy-peer-deps --workspaces && npm run build --workspace @leadflow/web",
+  "installCommand": "npm install --legacy-peer-deps --workspaces",
+  "framework": "vite",
+  "rootDirectory": "apps/web",
+  "outputDirectory": "dist"
 }
